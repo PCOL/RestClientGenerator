@@ -1,0 +1,11 @@
+﻿namespace {{PrefferredNamespace}}.Contracts;
+
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+
+public partial class {{ClassName}}Contract
+    : {{InterfaceName}}
+{
+{{InterfaceImpl}}
+}
