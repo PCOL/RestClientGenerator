@@ -2,11 +2,16 @@
 
 using System.Threading;
 using System.Threading.Tasks;
-using RestClientGenerator;
+using RestClient;
 
 [GenerateContract]
 public interface IClient
 {
-    [HttpGet("cluster/api/v1/workload/{id}")]
+    [Get("cluster/api/v1/workload/{id}")]
     Task<string> GetWorkloadAsync(string id, CancellationToken cancellationToken = default);
+
+    [Post("cluster/api/v1/workload")]
+    Task<string> CreateWorkloadAsync(
+        CreateWorkloadModel model,
+        CancellationToken cancellationToken = default);
 }

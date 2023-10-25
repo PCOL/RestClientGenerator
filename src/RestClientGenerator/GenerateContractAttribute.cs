@@ -1,4 +1,4 @@
-﻿namespace RestClientGenerator;
+﻿namespace RestClient;
 
 using System;
 

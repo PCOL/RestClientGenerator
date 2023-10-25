@@ -1,4 +1,4 @@
-﻿namespace RestClientGenerator;
+﻿namespace RestClient;
 
 /// <summary>
 /// <see cref="string"/> extension methods.

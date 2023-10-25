@@ -1,4 +1,4 @@
-﻿namespace RestClientGenerator;
+﻿namespace RestClient.Generator;
 
 using System.IO;
 using System.Linq;
@@ -45,6 +45,17 @@ public class ContractSourceGenerator
             {
                 if (member is IMethodSymbol methodMember)
                 {
+                    var requestUri = string.Empty;
+                    var attrs = member.GetAttributes();
+                    foreach (var attr in attrs)
+                    {
+                        if (attr.AttributeClass.BaseType.ContainingNamespace.Name == nameof(RestClient) &&
+                            attr.AttributeClass.BaseType.Name == nameof(MethodAttribute))
+                        {
+                            requestUri = attr.ConstructorArguments.First().Value.ToString();
+                        }
+                    }
+
                     generatedCode
                         .Append("  public ")
                         .Append(methodMember.ReturnType)
@@ -52,15 +63,18 @@ public class ContractSourceGenerator
                         .Append(methodMember.Name)
                         .Append('(')
                         .Append(string.Join(", ", methodMember.Parameters.Select(p => $"{p.Type.Name} {p.Name}")))
-                        .AppendLine(")")
-                        .AppendLine("  {")
-                        .AppendLine("    return Task.FromResult(\"Test\");")
-                        .AppendLine("  }")
+                        .Append(')').AppendLine()
+                        .Append("  {").AppendLine()
+                        .Append("    var requestUri = $\"").Append(requestUri).AppendLine("\";")
+                        .Append("    Console.WriteLine(requestUri);").AppendLine()
+                        .Append("    return Task.FromResult(\"Test\");").AppendLine()
+                        .Append("  }").AppendLine()
                         .AppendLine();
 
-                    Console.WriteLine(generatedCode.ToString());
                 }
             }
+
+            Console.WriteLine(generatedCode.ToString());
 
             // Finding my GenerateContracyAttribute over it. I'm sure this attribute is placed, because my syntax receiver already checked before.
             // So, I can surely execute following query.
