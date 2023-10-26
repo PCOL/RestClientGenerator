@@ -9,6 +9,62 @@ using System.Threading.Tasks;
 public static class UtilityExtensionMethods
 {
     /// <summary>
+    /// Throws an exception if the passed argument is null.
+    /// </summary>
+    /// <param name="argument">The arguement.</param>
+    /// <param name="argumentName">The argument name.</param>
+    public static void ThrowIfArgumentNull(this object argument, string argumentName)
+    {
+        if (argument == null)
+        {
+            throw new ArgumentNullException(argumentName);
+        }
+    }
+
+    /// <summary>
+    /// Throws an exception if the passed argument is null or empty.
+    /// </summary>
+    /// <param name="argument">The arguement.</param>
+    /// <param name="argumentName">The argument name.</param>
+    public static void ThrowIfArgumentNullOrEmpty(this string argument, string argumentName)
+    {
+        argument.ThrowIfArgumentNull(argumentName);
+
+        if (argument == string.Empty)
+        {
+            throw new ArgumentException("Argument is empty", argumentName);
+        }
+    }
+
+    /// <summary>
+    /// Throws an exception if the passed argument is null, empty or contains whitespace.
+    /// </summary>
+    /// <param name="argument">The arguement.</param>
+    /// <param name="argumentName">The argument name.</param>
+    public static void ThrowIfArgumentNullEmptyOrWhitespace(this string argument, string argumentName)
+    {
+        argument.ThrowIfArgumentNullOrEmpty(argumentName);
+
+        if (argument.IndexOf(' ') != -1)
+        {
+            throw new ArgumentException("Argument contains whitespace", argumentName);
+        }
+    }
+
+    /// <summary>
+    /// Throws an <see cref="InvalidOperationException"/> if the type is not an interface.
+    /// </summary>
+    /// <param name="type">The type.</param>
+    /// <param name="name">The types name.</param>
+    public static void ThrowIfNotInterface(this Type type, string name)
+    {
+        if (type.IsInterface == false)
+        {
+            throw new InvalidOperationException(string.Format("{0} must be an interface", name));
+        }
+    }
+
+    /// <summary>
     /// Checks if a list is null or empty.
     /// </summary>
     /// <typeparam name="T">The list type.</typeparam>

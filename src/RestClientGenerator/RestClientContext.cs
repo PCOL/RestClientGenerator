@@ -1,10 +1,20 @@
 ﻿namespace RestClient
 {
     using System;
-    using System.Collections.Generic;
-    using System.Text;
 
-    public class RestClientContext
+    public abstract class RestClientContext
     {
+        public TClient GetClient<TClient>()
+        {
+            return (TClient)GetClient(typeof(TClient));
+        }
+
+        public object GetClient(Type clientType)
+        {
+            clientType.ThrowIfArgumentNull(nameof(clientType));
+            clientType.ThrowIfNotInterface(nameof(clientType));
+
+            return null;
+        }
     }
 }
