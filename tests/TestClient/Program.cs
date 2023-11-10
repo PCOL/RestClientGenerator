@@ -15,24 +15,31 @@ public class Program
 
         Console.WriteLine(result);
 
-
-        var method = new FluentMethodBuilder("GetWigetAsync")
+        var @class = new FluentClassBuilder("MyClass")
             .Public()
-            .Async()
-            .Returns("Task<string>")
-            .Param(p => p
-                .TypeName("string")
-                .Name("id")
-                .Attribute(a => a
-                    .TypeName("Required")))
-            .Param(p => p
-                .Params()
-                .TypeName("object[]")
-                .Name("properties"))
-            .Attribute(a => a.TypeName("Required"))
-            .Body("")
+            .Attribute(
+                attr => attr.TypeName("TestAttribute"))
+            .Method(
+                "GetWigetAsync",
+                meth => meth
+                    .Public()
+                    .Async()
+                    .Returns("Task<string>")
+                    .Param(p => p
+                        .TypeName("string")
+                        .Name("id")
+                        .Attribute(a => a
+                            .TypeName("Required")))
+                    .Param(p => p
+                        .Params()
+                        .TypeName("object[]")
+                        .Name("properties"))
+                    .Attribute(a => a.TypeName("Required"))
+                    .Body(
+                        b => b
+                            .AppendLine("// Comment")))
             .Build();
 
-        Console.WriteLine(method);
+        Console.WriteLine(@class);
     }
 }

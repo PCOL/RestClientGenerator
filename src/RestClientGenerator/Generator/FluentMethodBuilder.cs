@@ -32,7 +32,7 @@ public class FluentMethodBuilder
     /// <summary>
     /// The body of the method.
     /// </summary>
-    private string body;
+    private StringBuilder body;
 
     /// <summary>
     /// A list of parameters.
@@ -40,7 +40,7 @@ public class FluentMethodBuilder
     private List<FluentParameterBuilder> parameters;
 
     /// <summary>
-    /// A list of parameter attributes.
+    /// A list of method attributes.
     /// </summary>
     private List<FluentAttributeBuilder> attributes;
 
@@ -122,7 +122,7 @@ public class FluentMethodBuilder
     /// Adds an attribute to the method.
     /// </summary>
     /// <param name="builder">An attribute builder action.</param>
-    /// <returns>The <see cref="FluentParameterBuilder"/> instance.</returns>
+    /// <returns>The <see cref="FluentMethodBuilder"/> instance.</returns>
     public FluentMethodBuilder Attribute(Action<FluentAttributeBuilder> builder)
     {
         var attributeBuilder = new FluentAttributeBuilder();
@@ -135,11 +135,12 @@ public class FluentMethodBuilder
     /// <summary>
     /// Sets the method body.
     /// </summary>
-    /// <param name="body">The method body.</param>
+    /// <param name="action">The method body.</param>
     /// <returns>The <see cref="FluentParameterBuilder"/> instance.</returns>
-    public FluentMethodBuilder Body(string body)
+    public FluentMethodBuilder Body(Action<StringBuilder> action)
     {
-        this.body = body;
+        this.body = new StringBuilder();
+        action(this.body);
         return this;
     }
 
@@ -149,6 +150,13 @@ public class FluentMethodBuilder
     /// <returns>The method definition.</returns>
     public string Build()
     {
+        return Build(0);
+    }
+
+    internal string Build(int indent)
+    {
+        var indentStr = new string(' ', indent);
+
         var parms = string.Empty;
         foreach(var parm in this.parameters)
         {
@@ -163,14 +171,20 @@ public class FluentMethodBuilder
         var methodDefinition = new StringBuilder();
         foreach (var attribute in this.attributes)
         {
-            methodDefinition.AppendLine(attribute.Build());
+            methodDefinition
+                .Append(indentStr)
+                .AppendLine(attribute.Build());
         }
 
         var asyncValue = this.async ? "async " : " ";
         methodDefinition
+            .Append(indentStr)
             .AppendLine($"{this.accessibility} {asyncValue}{this.returnType} {this.methodName}({parms})")
+            .Append(indentStr)
             .AppendLine("{")
-            .AppendLine(this.body)
+            .Append(indentStr)
+            .AppendLine(this.body.ToString())
+            .Append(indentStr)
             .AppendLine("}");
 
         return methodDefinition.ToString();
