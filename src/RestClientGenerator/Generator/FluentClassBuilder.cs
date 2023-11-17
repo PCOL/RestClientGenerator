@@ -2,6 +2,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using System.Text;
 
 public class FluentClassBuilder
@@ -10,6 +12,11 @@ public class FluentClassBuilder
     /// The class name.
     /// </summary>
     private readonly string className;
+
+    /// <summary>
+    /// The namespace.
+    /// </summary>
+    private string @namespace;
 
     /// <summary>
     /// The methods accessability.
@@ -27,14 +34,29 @@ public class FluentClassBuilder
     private bool isAbstract;
 
     /// <summary>
+    /// A value indicating whether or not the class is partial.
+    /// </summary>
+    private bool isPartial;
+
+    /// <summary>
     /// A list of methods.
     /// </summary>
     private List<FluentMethodBuilder> methods;
 
     /// <summary>
+    /// A list of properties.
+    /// </summary>
+    private List<FluentPropertyBuilder> properties;
+
+    /// <summary>
     /// A list of class attributes.
     /// </summary>
     private List<FluentAttributeBuilder> attributes;
+
+    /// <summary>
+    /// A list of usings.
+    /// </summary>
+    private List<(string, bool)> usings;
 
     /// <summary>
     /// Initialises a new instance of the <see cref="FluentMethodBuilder"/> class.
@@ -44,7 +66,16 @@ public class FluentClassBuilder
     {
         className = className ?? throw new ArgumentNullException(nameof(className));
 
-        this.className = className;
+        var pos = className.IndexOf('.');
+        if (pos == -1)
+        {
+            this.className = className;
+        }
+        else
+        {
+            this.@namespace = className.Substring(0, pos);
+            this.className = className.Substring(pos + 1);
+        }
     }
 
     /// <summary>
@@ -88,6 +119,29 @@ public class FluentClassBuilder
     }
 
     /// <summary>
+    /// 
+    /// </summary>
+    /// <returns>The <see cref="FluentMethodBuilder"/> instance.</returns>
+    public FluentClassBuilder Partial()
+    {
+        this.isPartial = true;
+        return this;
+    }
+
+    public FluentClassBuilder Namespace(string @namespace)
+    {
+        this.@namespace = @namespace;
+        return this;
+    }
+
+    public FluentClassBuilder Using(string @using, bool @static = false)
+    {
+        this.usings ??= new List<(string, bool)>();
+        this.usings.Add((@using, @static));
+        return this;
+    }
+
+    /// <summary>
     /// Adds an attribute to the class.
     /// </summary>
     /// <param name="builder">An attribute builder action.</param>
@@ -112,6 +166,18 @@ public class FluentClassBuilder
         return this;
     }
 
+    public FluentClassBuilder Property(
+        string propertyName,
+        Action<FluentPropertyBuilder> action)
+    {
+        var propertyBuilder = new FluentPropertyBuilder(propertyName);
+        action(propertyBuilder);
+        this.properties ??= new List<FluentPropertyBuilder>();
+        this.properties.Add(propertyBuilder);
+        return this;
+    }
+
+
     /// <summary>
     /// Builds the method definition.
     /// </summary>
@@ -119,24 +185,56 @@ public class FluentClassBuilder
     public string Build()
     {
         var classDefinition = new StringBuilder();
-
-
-        foreach (var attribute in this.attributes)
+        if (this.@namespace != null)
         {
-            classDefinition.AppendLine(attribute.Build());
+            classDefinition
+                .AppendLine($"namespace {this.@namespace};")
+                .AppendLine();
         }
 
-        var value = this.isSealed ? "sealed " : this.isAbstract ? "abstract " : string.Empty;
+        if (this.usings != null)
+        {
+            foreach (var (@using, @static) in this.usings.OrderBy(u => u.Item2))
+            {
+                var staticStr = @static ? "static " : string.Empty;
+                classDefinition.AppendLine($"using {staticStr}global::{@using.Trim()};");
+            }
+
+            classDefinition.AppendLine();
+        }
+
+        if (this.attributes != null)
+        {
+            foreach (var attribute in this.attributes)
+            {
+                classDefinition.AppendLine(attribute.Build());
+            }
+        }
+
+        var value = this.isSealed ? "sealed " : this.isAbstract ? "abstract " : this.isPartial ? "partial " : string.Empty;
         classDefinition
             .AppendLine($"{this.accessibility} {value}class {this.className}")
             .AppendLine("{");
 
-        var parms = string.Empty;
-        foreach (var method in this.methods)
+
+        if (this.properties != null)
         {
-            classDefinition
-                .AppendLine(method.Build(4))
-                .AppendLine();
+            foreach (var property in this.properties)
+            {
+                classDefinition
+                    .AppendLine(property.Build(4));
+            }
+        }
+
+        if (this.methods != null)
+        {
+            classDefinition.AppendLine();
+
+            foreach (var method in this.methods)
+            {
+                classDefinition
+                    .AppendLine(method.Build(4));
+            }
         }
 
         classDefinition

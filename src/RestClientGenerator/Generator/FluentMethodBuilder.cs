@@ -158,22 +158,28 @@ public class FluentMethodBuilder
         var indentStr = new string(' ', indent);
 
         var parms = string.Empty;
-        foreach(var parm in this.parameters)
+        if (this.parameters != null)
         {
-            if (parms.Length > 0)
+            foreach (var parm in this.parameters)
             {
-                parms += ", ";
-            }
+                if (parms.Length > 0)
+                {
+                    parms += ", ";
+                }
 
-            parms += parm.Build();
+                parms += parm.Build();
+            }
         }
 
         var methodDefinition = new StringBuilder();
-        foreach (var attribute in this.attributes)
+        if (this.attributes != null)
         {
-            methodDefinition
-                .Append(indentStr)
-                .AppendLine(attribute.Build());
+            foreach (var attribute in this.attributes)
+            {
+                methodDefinition
+                    .Append(indentStr)
+                    .AppendLine(attribute.Build());
+            }
         }
 
         var asyncValue = this.async ? "async " : " ";

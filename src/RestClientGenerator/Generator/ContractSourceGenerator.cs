@@ -140,6 +140,9 @@ public class ContractSourceGenerator
 
             var generatedCode = new StringBuilder();
 
+            FluentClassBuilder classBuilder = null;
+
+            var @namespace = GetNamespaceRecursively(symbol.ContainingNamespace);
             var typeName = "Unknown";
             foreach (var attr in symbol.GetAttributes())
             {
@@ -152,29 +155,51 @@ public class ContractSourceGenerator
 
                     typeName = name;
 
-                    generatedCode
-                        .Append("  public ")
-                        .Append(firstParam.Value)
-                        .Append(' ')
-                        .Append(name).AppendLine()
-                        .Append("  {").AppendLine()
-                        .Append("    get").AppendLine()
-                        .Append("    {").AppendLine()
-                        .Append("      return new ").Append(name.TrimStart('I')).Append("Contract();").AppendLine()
-                        .Append("    }").AppendLine()
-                        .Append("  }").AppendLine()
-                        .AppendLine();
+                    classBuilder = new FluentClassBuilder(symbol.Name.TrimStart('I'))
+                        .Namespace(@namespace)
+                        .Using("System.Threading")
+                        .Using("System.Threading.Tasks")
+                        .Using($"{@namespace}.Contracts")
+                        .Public()
+                        .Partial()
+                        .Property(
+                            name,
+                            p => p
+                                .Public()
+                                .Returns(firstParam.Value.ToString())
+                                .Getter(
+                                    c => c
+                                        .Append("return new ")
+                                        .Append(name.TrimStart('I'))
+                                        .Append("Contract();")
+                                        .AppendLine()));
+
+                    ////generatedCode
+                    ////    .Append("  public ")
+                    ////    .Append(firstParam.Value)
+                    ////    .Append(' ')
+                    ////    .Append(name).AppendLine()
+                    ////    .Append("  {").AppendLine()
+                    ////    .Append("    get").AppendLine()
+                    ////    .Append("    {").AppendLine()
+                    ////    .Append("      return new ").Append(name.TrimStart('I')).Append("Contract();").AppendLine()
+                    ////    .Append("    }").AppendLine()
+                    ////    .Append("  }").AppendLine()
+                    ////    .AppendLine();
 
                 }
             }
 
-            //Console.WriteLine(generatedCode.ToString());
+            //Console.WriteLine(classBuilder.Build());
 
+            var sourceCode = classBuilder.Build();
+
+            /*
             // Generate the real source code. Pass the template parameter if there is a overriden template.
             var sourceCode = GetSourceCodeForNamedTemplate(symbol, "RestClient.Templates.RestClientContext.txt");
-
             sourceCode = sourceCode.Replace("{{" + nameof(DefaultTemplateParameters.InterfaceImpl) + "}}", generatedCode.ToString());
-
+            */
+            
             Console.WriteLine(sourceCode);
 
             context.AddSource(

@@ -14,11 +14,15 @@ public class Program
         var result = await context.IClient.GetWorkloadAsync("Test");
 
         Console.WriteLine(result);
+        Console.WriteLine("--------");
 
-        var @class = new FluentClassBuilder("MyClass")
+        var @class = new FluentClassBuilder("MyApp.MyClass")
+//            .Namespace("MyApp")
+            .Using("System")
+            .Using("System.Threading")
+            .Using("GV.Platform.Logging.LogProperties", true)
             .Public()
-            .Attribute(
-                attr => attr.TypeName("TestAttribute"))
+            //.Attribute(attr => attr.TypeName("TestAttribute"))
             .Method(
                 "GetWigetAsync",
                 meth => meth
@@ -28,13 +32,13 @@ public class Program
                     .Param(p => p
                         .TypeName("string")
                         .Name("id")
-                        .Attribute(a => a
-                            .TypeName("Required")))
+                        //.Attribute(a => a.TypeName("Required"))
+                    )
                     .Param(p => p
                         .Params()
                         .TypeName("object[]")
                         .Name("properties"))
-                    .Attribute(a => a.TypeName("Required"))
+                    //.Attribute(a => a.TypeName("Required"))
                     .Body(
                         b => b
                             .AppendLine("// Comment")))
@@ -42,4 +46,5 @@ public class Program
 
         Console.WriteLine(@class);
     }
+
 }
