@@ -3,15 +3,22 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Text;
 
+/// <summary>
+/// Represents a fluent class builder.
+/// </summary>
 public class FluentClassBuilder
 {
     /// <summary>
     /// The class name.
     /// </summary>
     private readonly string className;
+
+    /// <summary>
+    /// The base class name.
+    /// </summary>
+    private string baseClassName;
 
     /// <summary>
     /// The namespace.
@@ -37,6 +44,11 @@ public class FluentClassBuilder
     /// A value indicating whether or not the class is partial.
     /// </summary>
     private bool isPartial;
+
+    /// <summary>
+    /// A list of interfaces.
+    /// </summary>
+    private List<string> interfaces;
 
     /// <summary>
     /// A list of methods.
@@ -142,6 +154,29 @@ public class FluentClassBuilder
     }
 
     /// <summary>
+    /// Specifies that an interface is implemented.
+    /// </summary>
+    /// <param name="interface">The interface name.</param>
+    /// <returns>The <see cref="FluentClassBuilder"/>.</returns>
+    public FluentClassBuilder Implements(string @interface)
+    {
+        this.interfaces ??= new List<string>();
+        this.interfaces.Add(@interface);
+        return this;
+    }
+
+    /// <summary>
+    /// Specifies that the class ihnerits from another class.
+    /// </summary>
+    /// <param name="baseClassName">The base classes name.</param>
+    /// <returns>The <see cref="FluentClassBuilder"/>.</returns>
+    public FluentClassBuilder Inherits(string baseClassName)
+    {
+        this.baseClassName = baseClassName;
+        return this;
+    }
+
+    /// <summary>
     /// Adds an attribute to the class.
     /// </summary>
     /// <param name="builder">An attribute builder action.</param>
@@ -165,6 +200,20 @@ public class FluentClassBuilder
         this.methods.Add(methodBuilder);
         return this;
     }
+
+    /// <summary>
+    /// Adds a method.
+    /// </summary>
+    /// <param name="methodName">The name of the method.</param>
+    /// <returns>A <see cref="FluentMethodBuilder"/>.</returns>
+    public FluentMethodBuilder Method(string methodName)
+    {
+        var methodBuilder = new FluentMethodBuilder(methodName);
+        this.methods ??= new List<FluentMethodBuilder>();
+        this.methods.Add(methodBuilder);
+        return methodBuilder;
+    }
+
 
     public FluentClassBuilder Property(
         string propertyName,
@@ -213,7 +262,27 @@ public class FluentClassBuilder
 
         var value = this.isSealed ? "sealed " : this.isAbstract ? "abstract " : this.isPartial ? "partial " : string.Empty;
         classDefinition
-            .AppendLine($"{this.accessibility} {value}class {this.className}")
+            .AppendLine($"{this.accessibility} {value}class {this.className}");
+
+        if (this.interfaces != null ||
+            string.IsNullOrWhiteSpace(this.baseClassName) == false)
+        {
+            classDefinition
+                .Append("   : ");
+
+            if (string.IsNullOrWhiteSpace(this.baseClassName) == false)
+            {
+                classDefinition
+                    .Append(this.baseClassName)
+                    .AppendLine();
+            }
+
+            classDefinition
+                .Append(string.Join(",\r\n", this.interfaces))
+                .AppendLine();
+        }
+
+        classDefinition
             .AppendLine("{");
 
 

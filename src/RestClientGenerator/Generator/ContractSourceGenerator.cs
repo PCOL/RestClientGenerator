@@ -1,13 +1,11 @@
 ﻿namespace RestClient.Generator;
 
-using System.IO;
+using System;
 using System.Linq;
 using System.Text;
-using System;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
 using Microsoft.CodeAnalysis.CSharp;
-using System.Xml.Schema;
 
 /// <summary>
 /// Contract source generator.
@@ -48,7 +46,17 @@ public class ContractSourceGenerator
             // such as interfaces, methods, members, contructor parameters etc.
             var symbol = model.GetDeclaredSymbol(interfaceSyntax);
 
-            var generatedCode = new StringBuilder();
+            var @namespace = GetNamespaceRecursively(symbol.ContainingNamespace);
+            var @interface = symbol.Name;
+            var className = $"{@interface.TrimStart('I')}Contract";
+            var classBuilder = new FluentClassBuilder(className)
+                .Namespace($"{@namespace}.Contracts")
+                .Using("System")
+                .Using("System.Threading")
+                .Using("System.Threading.Tasks")
+                .Public()
+                .Partial()
+                .Implements(@interface);
 
             foreach (var member in symbol.GetAllMembers())
             {
@@ -65,63 +73,38 @@ public class ContractSourceGenerator
                         }
                     }
 
-                    generatedCode
-                        .Append("  public ")
-                        .Append(methodMember.ReturnType)
-                        .Append(' ')
-                        .Append(methodMember.Name)
-                        .Append('(')
-                        .Append(string.Join(", ", methodMember.Parameters.Select(p => $"{p.Type.Name} {p.Name}")))
-                        .Append(')').AppendLine()
-                        .Append("  {").AppendLine()
-                        .Append("    var requestUri = $\"").Append(requestUri).AppendLine("\";")
-                        .Append("    Console.WriteLine(requestUri);").AppendLine()
-                        .Append("    return Task.FromResult(\"Test\");").AppendLine()
-                        .Append("  }").AppendLine()
-                        .AppendLine();
+                    classBuilder.Method(
+                        methodMember.Name,
+                        m => m
+                            .Public()
+                            .Returns(methodMember.ReturnType.ToString())
+                            .Params(
+                                pb =>
+                                {
+                                    foreach (var param in methodMember.Parameters)
+                                    {
+                                        pb.Param(
+                                            param.Name,
+                                            p => p
+                                                .TypeName(param.Type.OriginalDefinition.ToString()));
+                                    }
+                                })
+                            .Body(
+                                sb => sb
+                                    .Append("    var requestUri = $\"").Append(requestUri).AppendLine("\";")
+                                    .Append("    Console.WriteLine(requestUri);").AppendLine()
+                                    .Append("    return Task.FromResult(\"Test\");").AppendLine()));
 
                 }
             }
 
-            //Console.WriteLine(generatedCode.ToString());
-
-            // Finding my GenerateContracyAttribute over it. I'm sure this attribute is placed, because my syntax receiver already checked before.
-            // So, I can surely execute following query.
-            var attribute = interfaceSyntax
-                .AttributeLists
-                .SelectMany(sm => sm.Attributes)
-                .First(x => x.Name
-                    .ToString()
-                    .EnsureEndsWith("Attribute")
-                    .Equals(typeof(GenerateContractAttribute).Name));
-
-            // Getting constructor parameter of the attribute. It might be not presented.
-            var templateParameter = attribute
-                .ArgumentList?
-                .Arguments
-                .FirstOrDefault()?
-                .GetLastToken()
-                .ValueText; // Temprorary... Attribute has only one argument for now.
-
-            // Can't access embeded resource of main project.
-            // So overridden template must be marked as Analyzer Additional File to be able to be accessed by an analyzer.
-            var overridenTemplate = templateParameter != null ?
-                context.AdditionalFiles
-                    .FirstOrDefault(x => x.Path.EndsWith(templateParameter))?
-                    .GetText()
-                    .ToString() :
-                null;
-
-            // Generate the real source code. Pass the template parameter if there is a overriden template.
-            var sourceCode = GetSourceCodeFor(symbol, overridenTemplate);
-
-            sourceCode = sourceCode.Replace("{{" + nameof(DefaultTemplateParameters.InterfaceImpl) + "}}", generatedCode.ToString());
-
-            Console.WriteLine(sourceCode);
+            var sourceCode = classBuilder.Build();
 
             context.AddSource(
-                $"{symbol.Name.TrimStart('I')}{templateParameter ?? "Contract"}.g.cs",
+                $"{className}.g.cs",
                 SourceText.From(sourceCode, Encoding.UTF8));
+
+            Console.WriteLine(sourceCode);
         }
     }
 
@@ -140,6 +123,7 @@ public class ContractSourceGenerator
 
             var generatedCode = new StringBuilder();
 
+            var className = symbol.Name;
             FluentClassBuilder classBuilder = null;
 
             var @namespace = GetNamespaceRecursively(symbol.ContainingNamespace);
@@ -153,9 +137,9 @@ public class ContractSourceGenerator
                     var value = firstParam.Value as string;
                     var name = sym.Name;
 
-                    typeName = name;
+                    typeName = name.TrimStart('I');
 
-                    classBuilder = new FluentClassBuilder(symbol.Name.TrimStart('I'))
+                    classBuilder = new FluentClassBuilder(className)
                         .Namespace(@namespace)
                         .Using("System.Threading")
                         .Using("System.Threading.Tasks")
@@ -170,85 +154,20 @@ public class ContractSourceGenerator
                                 .Getter(
                                     c => c
                                         .Append("return new ")
-                                        .Append(name.TrimStart('I'))
+                                        .Append(typeName)
                                         .Append("Contract();")
                                         .AppendLine()));
-
-                    ////generatedCode
-                    ////    .Append("  public ")
-                    ////    .Append(firstParam.Value)
-                    ////    .Append(' ')
-                    ////    .Append(name).AppendLine()
-                    ////    .Append("  {").AppendLine()
-                    ////    .Append("    get").AppendLine()
-                    ////    .Append("    {").AppendLine()
-                    ////    .Append("      return new ").Append(name.TrimStart('I')).Append("Contract();").AppendLine()
-                    ////    .Append("    }").AppendLine()
-                    ////    .Append("  }").AppendLine()
-                    ////    .AppendLine();
-
                 }
             }
 
-            //Console.WriteLine(classBuilder.Build());
-
             var sourceCode = classBuilder.Build();
 
-            /*
-            // Generate the real source code. Pass the template parameter if there is a overriden template.
-            var sourceCode = GetSourceCodeForNamedTemplate(symbol, "RestClient.Templates.RestClientContext.txt");
-            sourceCode = sourceCode.Replace("{{" + nameof(DefaultTemplateParameters.InterfaceImpl) + "}}", generatedCode.ToString());
-            */
-            
-            Console.WriteLine(sourceCode);
-
             context.AddSource(
-                $"{symbol.Name}_{typeName}.g.cs",
+                $"{className}.g.cs",
                 SourceText.From(sourceCode, Encoding.UTF8));
+
+            Console.WriteLine(sourceCode);
         }
-    }
-
-    private string GetSourceCodeFor(ISymbol symbol, string template = null)
-    {
-        // If template isn't provieded, use default one from embeded resources.
-        template ??= GetEmbededResource("RestClient.Templates.Default.txt");
-
-        // Can't use scriban at the moment, make it manually for now.
-        return template
-            .Replace("{{" + nameof(DefaultTemplateParameters.ClassName) + "}}", symbol.Name.TrimStart('I'))
-            .Replace("{{" + nameof(DefaultTemplateParameters.InterfaceName) + "}}", symbol.Name)
-            .Replace("{{" + nameof(DefaultTemplateParameters.Namespace) + "}}", GetNamespaceRecursively(symbol.ContainingNamespace))
-            .Replace("{{" + nameof(DefaultTemplateParameters.PrefferredNamespace) + "}}", symbol.ContainingAssembly.Name);
-    }
-
-    private string GetSourceCodeForNamedTemplate(ISymbol symbol, string templateName)
-    {
-        var template = GetEmbededResource(templateName);
-
-        // Can't use scriban at the moment, make it manually for now.
-        return template
-            .Replace("{{" + nameof(DefaultTemplateParameters.ClassName) + "}}", symbol.Name)
-            .Replace("{{" + nameof(DefaultTemplateParameters.InterfaceName) + "}}", symbol.Name)
-            .Replace("{{" + nameof(DefaultTemplateParameters.Namespace) + "}}", GetNamespaceRecursively(symbol.ContainingNamespace))
-            .Replace("{{" + nameof(DefaultTemplateParameters.PrefferredNamespace) + "}}", symbol.ContainingAssembly.Name);
-    }
-
-
-
-    private string GetEmbededResource(string path)
-    {
-        try
-        {
-            using var stream = GetType().Assembly.GetManifestResourceStream(path);
-            using var streamReader = new StreamReader(stream);
-            return streamReader.ReadToEnd();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine(ex.ToString());
-        }
-
-        return null;
     }
 
     private string GetNamespaceRecursively(INamespaceSymbol symbol)

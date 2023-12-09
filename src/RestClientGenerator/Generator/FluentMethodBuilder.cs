@@ -119,6 +119,35 @@ public class FluentMethodBuilder
     }
 
     /// <summary>
+    /// Adds a parameter to the method.
+    /// </summary>
+    /// <param name="builder">The parameter builder action.</param>
+    /// <returns>The <see cref="FluentMethodBuilder"/> instance.</returns>
+    public FluentParameterBuilder Param(string parameterName)
+    {
+        var parameterBuilder = new FluentParameterBuilder()
+            .Name(parameterName);
+
+        this.parameters ??= new List<FluentParameterBuilder>();
+        this.parameters.Add(parameterBuilder);
+        return parameterBuilder;
+    }
+
+    /// <summary>
+    /// Adds a parameter to the method.
+    /// </summary>
+    /// <param name="builder">The parameter builder action.</param>
+    /// <returns>The <see cref="FluentMethodBuilder"/> instance.</returns>
+    public FluentMethodBuilder Params(
+        Action<FluentParametersBuilder> builder)
+    {
+        var parametersBuilder = new FluentParametersBuilder(this);
+        builder(parametersBuilder);
+        return this;
+    }
+
+
+    /// <summary>
     /// Adds an attribute to the method.
     /// </summary>
     /// <param name="builder">An attribute builder action.</param>
@@ -182,7 +211,7 @@ public class FluentMethodBuilder
             }
         }
 
-        var asyncValue = this.async ? "async " : " ";
+        var asyncValue = this.async ? "async " : string.Empty;
         methodDefinition
             .Append(indentStr)
             .AppendLine($"{this.accessibility} {asyncValue}{this.returnType} {this.methodName}({parms})")
