@@ -22,4 +22,9 @@ public static class StringExtensionMethods
 
         return source + suffix;
     }
+
+    internal static string RemoveLeadingI(this string typeName)
+    {
+        return typeName.StartsWith("I") ? typeName.Substring(1) : typeName;
+    }
 }

@@ -51,6 +51,16 @@ public class FluentClassBuilder
     private List<string> interfaces;
 
     /// <summary>
+    /// A list of fields.
+    /// </summary>
+    private List<FluentFieldBuilder> fields;
+
+    /// <summary>
+    /// A list of constructorss.
+    /// </summary>
+    private List<FluentMethodBuilder> constructors;
+
+    /// <summary>
     /// A list of methods.
     /// </summary>
     private List<FluentMethodBuilder> methods;
@@ -64,6 +74,11 @@ public class FluentClassBuilder
     /// A list of class attributes.
     /// </summary>
     private List<FluentAttributeBuilder> attributes;
+
+    /// <summary>
+    /// A list of subclasses.
+    /// </summary>
+    private List<FluentClassBuilder> subClasses;
 
     /// <summary>
     /// A list of usings.
@@ -190,6 +205,37 @@ public class FluentClassBuilder
         return this;
     }
 
+    public FluentClassBuilder Field<T>(
+        string fieldName,
+        Action<FluentFieldBuilder> action = null)
+    {
+        return this.Field(typeof(T).FullName, fieldName, action);
+    }
+
+    public FluentClassBuilder Field(
+        string typeName,
+        string fieldName,
+        Action<FluentFieldBuilder> action = null)
+    {
+        var builder = new FluentFieldBuilder(typeName, fieldName);
+        action?.Invoke(builder);
+
+        this.fields ??= new List<FluentFieldBuilder>();
+        this.fields.Add(builder);
+        return this;
+    }
+
+    public FluentClassBuilder Constructor(
+        Action<FluentMethodBuilder> action)
+    {
+        var builder = new FluentMethodBuilder(this.className);
+        action(builder);
+
+        this.constructors ??= new List<FluentMethodBuilder>();
+        this.constructors.Add(builder);
+        return this;
+    }
+
     public FluentClassBuilder Method(
         string methodName,
         Action<FluentMethodBuilder> action)
@@ -226,6 +272,16 @@ public class FluentClassBuilder
         return this;
     }
 
+    public FluentClassBuilder SubClass(
+        string className,
+        Action<FluentClassBuilder> action)
+    {
+        var classBuilder = new FluentClassBuilder(className);
+        action(classBuilder);
+        this.subClasses ??= new List<FluentClassBuilder>();
+        this.subClasses.Add(classBuilder);
+        return this;
+    }
 
     /// <summary>
     /// Builds the method definition.
@@ -233,10 +289,18 @@ public class FluentClassBuilder
     /// <returns>The method definition.</returns>
     public string Build()
     {
+        return this.Build(0);
+    }
+
+    private string Build(int indent)
+    {
+        var indentStr = new string(' ', indent);
+
         var classDefinition = new StringBuilder();
         if (this.@namespace != null)
         {
             classDefinition
+                .Append(indentStr)
                 .AppendLine($"namespace {this.@namespace};")
                 .AppendLine();
         }
@@ -246,7 +310,9 @@ public class FluentClassBuilder
             foreach (var (@using, @static) in this.usings.OrderBy(u => u.Item2))
             {
                 var staticStr = @static ? "static " : string.Empty;
-                classDefinition.AppendLine($"using {staticStr}global::{@using.Trim()};");
+                classDefinition
+                    .Append(indentStr)
+                    .AppendLine($"using {staticStr}global::{@using.Trim()};");
             }
 
             classDefinition.AppendLine();
@@ -256,18 +322,21 @@ public class FluentClassBuilder
         {
             foreach (var attribute in this.attributes)
             {
-                classDefinition.AppendLine(attribute.Build());
+                classDefinition
+                    .AppendLine(attribute.Build());
             }
         }
 
         var value = this.isSealed ? "sealed " : this.isAbstract ? "abstract " : this.isPartial ? "partial " : string.Empty;
         classDefinition
+            .Append(indentStr)
             .AppendLine($"{this.accessibility} {value}class {this.className}");
 
         if (this.interfaces != null ||
             string.IsNullOrWhiteSpace(this.baseClassName) == false)
         {
             classDefinition
+                .Append(indentStr)
                 .Append("   : ");
 
             if (string.IsNullOrWhiteSpace(this.baseClassName) == false)
@@ -278,20 +347,42 @@ public class FluentClassBuilder
             }
 
             classDefinition
-                .Append(string.Join(",\r\n", this.interfaces))
+                .Append(string.Join($",\r\n{indentStr}", this.interfaces))
                 .AppendLine();
         }
 
         classDefinition
+            .Append(indentStr)
             .AppendLine("{");
 
+        if (this.fields != null)
+        {
+            classDefinition.AppendLine();
+
+            foreach (var field in this.fields)
+            {
+                classDefinition
+                    .AppendLine(field.Build(indent + 4));
+            }
+        }
+
+        if (this.constructors != null)
+        {
+            classDefinition.AppendLine();
+
+            foreach (var ctor in this.constructors)
+            {
+                classDefinition
+                    .AppendLine(ctor.Build(indent + 4, true));
+            }
+        }
 
         if (this.properties != null)
         {
             foreach (var property in this.properties)
             {
                 classDefinition
-                    .AppendLine(property.Build(4));
+                    .AppendLine(property.Build(indent + 4));
             }
         }
 
@@ -302,11 +393,23 @@ public class FluentClassBuilder
             foreach (var method in this.methods)
             {
                 classDefinition
-                    .AppendLine(method.Build(4));
+                    .AppendLine(method.Build(indent + 4));
+            }
+        }
+
+        if (this.subClasses != null)
+        {
+            classDefinition.AppendLine();
+
+            foreach (var subClass in this.subClasses)
+            {
+                classDefinition
+                    .AppendLine(subClass.Build(indent + 4));
             }
         }
 
         classDefinition
+            .Append(indentStr)
             .AppendLine("}");
         
         return classDefinition.ToString();

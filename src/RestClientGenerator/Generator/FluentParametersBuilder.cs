@@ -25,10 +25,39 @@ public class FluentParametersBuilder
     /// <returns>The <see cref="FluentParameterBuilder"/> instance.</returns>
     public FluentParametersBuilder Param(
         string parameterName,
-        Action<FluentParameterBuilder> builder)
+        Action<FluentParameterBuilder> action = null)
     {
         var paramBuilder = methodBuilder.Param(parameterName);
-        builder(paramBuilder);
+        action(paramBuilder);
         return this;
     }
+
+    /// <summary>
+    /// Adds a parameter.
+    /// </summary>
+    /// <typeparam name="T">The parameters type.</typeparam>
+    /// <param name="parameterName">The parameter name.</param>
+    /// <returns>The <see cref="FluentParameterBuilder"/> instance.</returns>
+    public FluentParametersBuilder Param<T>(
+        string parameterName,
+        Action<FluentParameterBuilder> action = null)
+    {
+        return this.Param(parameterName, typeof(T).FullName, action);
+    }
+
+    /// <summary>
+    /// Adds a parameter.
+    /// </summary>
+    /// <param name="parameterName">The parameter name.</param>
+    /// <returns>The <see cref="FluentParameterBuilder"/> instance.</returns>
+    public FluentParametersBuilder Param(
+        string parameterName,
+        string typeName,
+        Action<FluentParameterBuilder> action = null)
+    {
+        var paramBuilder = methodBuilder.Param(parameterName).TypeName(typeName);
+        action?.Invoke(paramBuilder);
+        return this;
+    }
+
 }

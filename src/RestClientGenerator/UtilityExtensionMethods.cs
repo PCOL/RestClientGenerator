@@ -101,7 +101,10 @@ public static class UtilityExtensionMethods
     /// <param name="obj">The object.</param>
     /// <param name="propertyName">The name of the property.</param>
     /// <param name="value">The value to set.</param>
-    public static void SetObjectProperty<T>(this object obj, string propertyName, T value)
+    public static void SetObjectProperty<T>(
+        this object obj,
+        string propertyName,
+        T value)
     {
         var property = obj?.GetType().GetProperty(propertyName, typeof(T));
         if (property != null && property.SetMethod != null && property.SetMethod.IsPublic)
@@ -116,7 +119,9 @@ public static class UtilityExtensionMethods
     /// <typeparam name="T">The property type.</typeparam>
     /// <param name="obj">The object.</param>
     /// <param name="value">The value.</param>
-    public static void SetObjectProperty<T>(this object obj, T value)
+    public static void SetObjectProperty<T>(
+        this object obj,
+        T value)
     {
         obj.SetObjectProperty(() => value);
     }
@@ -127,7 +132,9 @@ public static class UtilityExtensionMethods
     /// <typeparam name="T">The property type.</typeparam>
     /// <param name="obj">The object.</param>
     /// <param name="valueFunction">The function that provides the value.</param>
-    public static void SetObjectProperty<T>(this object obj, Func<T> valueFunction)
+    public static void SetObjectProperty<T>(
+        this object obj,
+        Func<T> valueFunction)
     {
         obj?.GetType()
             .GetProperties().SetProperty(obj, valueFunction());
@@ -140,7 +147,10 @@ public static class UtilityExtensionMethods
     /// <param name="properties">A list of properties.</param>
     /// <param name="obj">The object.</param>
     /// <param name="value">The value.</param>
-    public static void SetProperty<T>(this IEnumerable<PropertyInfo> properties, object obj, T value)
+    public static void SetProperty<T>(
+        this IEnumerable<PropertyInfo> properties,
+        object obj,
+        T value)
     {
         properties.SetProperty(obj, () => value);
     }
@@ -152,7 +162,10 @@ public static class UtilityExtensionMethods
     /// <param name="properties">A list of properties.</param>
     /// <param name="obj">The object.</param>
     /// <param name="valueFunction">The function that provides the value.</param>
-    public static void SetProperty<T>(this IEnumerable<PropertyInfo> properties, object obj, Func<T> valueFunction)
+    public static void SetProperty<T>(
+        this IEnumerable<PropertyInfo> properties,
+        object obj,
+        Func<T> valueFunction)
     {
         var property = properties?.FirstOrDefault(p => p.PropertyType == typeof(T));
         if (property != null)
@@ -168,12 +181,40 @@ public static class UtilityExtensionMethods
     /// <param name="obj">The object.</param>
     /// <param name="propertyType">The properties type.</param>
     /// <param name="valueFunction">The function that provides the value.</param>
-    public static void SetProperty(this IEnumerable<PropertyInfo> properties, object obj, Type propertyType, Func<object> valueFunction)
+    public static void SetProperty(
+        this IEnumerable<PropertyInfo> properties,
+        object obj,
+        Type propertyType,
+        Func<object> valueFunction)
     {
         var property = properties?.FirstOrDefault(p => p.PropertyType == propertyType);
         if (property != null)
         {
             property.SetValue(obj, valueFunction());
         }
+    }
+
+    /// <summary>
+    /// Checks if a type a subclass of a generic type.
+    /// </summary>
+    /// <param name="type">The generic type.</param>
+    /// <param name="check">The type to check.</param>
+    /// <returns>True if it is a subclass; otherwise false.</returns>
+    public static bool IsSubclassOfGeneric(
+        this Type type,
+        Type check)
+    {
+        while (type != null && type != typeof(object))
+        {
+            var genType = type.IsGenericType ? type.GetGenericTypeDefinition() : type;
+            if (check == genType)
+            {
+                return true;
+            }
+
+            type = type.BaseType;
+        }
+
+        return false;
     }
 }

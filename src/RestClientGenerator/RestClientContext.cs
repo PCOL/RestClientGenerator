@@ -1,20 +1,54 @@
-﻿namespace RestClient
+﻿namespace RestClient;
+
+using System;
+using System.Net.Http;
+
+public abstract class RestClientContext
 {
-    using System;
+    private RestClientOptions options;
 
-    public abstract class RestClientContext
+    private HttpClient httpClient;
+
+    public RestClientOptions Options
     {
-        public TClient GetClient<TClient>()
+        get => this.options ??= new RestClientOptions();
+
+        set
         {
-            return (TClient)GetClient(typeof(TClient));
+            this.options = value;
+        }
+    }
+
+    ////public TClient GetClient<TClient>()
+    ////{
+    ////    return (TClient)GetClient(typeof(TClient));
+    ////}
+
+    ////public object GetClient(Type clientType)
+    ////{
+    ////    clientType.ThrowIfArgumentNull(nameof(clientType));
+    ////    clientType.ThrowIfNotInterface(nameof(clientType));
+
+    ////    return null;
+    ////}
+
+    /// <summary>
+    /// Gets the <see cref="HttpClient"/>.
+    /// </summary>
+    /// <returns>A <see cref="HttpClient"/>.</returns>
+    public HttpClient GetHttpClient()
+    {
+        if (this.httpClient == null)
+        {
+            lock (this)
+            {
+                if (this.httpClient == null)
+                {
+                    this.httpClient = this.options.HttpClient ?? new HttpClient();
+                }
+            }
         }
 
-        public object GetClient(Type clientType)
-        {
-            clientType.ThrowIfArgumentNull(nameof(clientType));
-            clientType.ThrowIfNotInterface(nameof(clientType));
-
-            return null;
-        }
+        return this.httpClient;
     }
 }

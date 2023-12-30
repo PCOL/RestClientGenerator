@@ -17,7 +17,7 @@ public class FluentMethodBuilder
     /// <summary>
     /// The methods accessability.
     /// </summary>
-    private string accessibility;
+    private string accessibility = "private";
 
     /// <summary>
     /// The methods return type.
@@ -32,7 +32,7 @@ public class FluentMethodBuilder
     /// <summary>
     /// The body of the method.
     /// </summary>
-    private StringBuilder body;
+    private FluentCodeBuilder body;
 
     /// <summary>
     /// A list of parameters.
@@ -65,6 +65,26 @@ public class FluentMethodBuilder
     }
 
     /// <summary>
+    /// Sets the methods accessability to private.
+    /// </summary>
+    /// <returns>The <see cref="FluentMethodBuilder"/> instance.</returns>
+    public FluentMethodBuilder Private()
+    {
+        this.accessibility = "private";
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the methods accessability to internal.
+    /// </summary>
+    /// <returns>The <see cref="FluentMethodBuilder"/> instance.</returns>
+    public FluentMethodBuilder Internal()
+    {
+        this.accessibility = "internal";
+        return this;
+    }
+
+    /// <summary>
     /// 
     /// </summary>
     /// <returns>The <see cref="FluentMethodBuilder"/> instance.</returns>
@@ -72,6 +92,16 @@ public class FluentMethodBuilder
     {
         this.async = true;
         return this;
+    }
+
+    /// <summary>
+    /// Sets the return type.
+    /// </summary>
+    /// <typeparam name="T">The return type.</typeparam>
+    /// <returns>The <see cref="FluentMethodBuilder"/> instance.</returns>
+    public FluentMethodBuilder Returns<T>()
+    {
+        return Returns(typeof(T).FullName);
     }
 
     /// <summary>
@@ -85,19 +115,26 @@ public class FluentMethodBuilder
         return this;
     }
 
-    /// <summary>
-    /// Adds a parameter to the method.
-    /// </summary>
-    /// <param name="typeName">The parameter type name.</param>
-    /// <param name="parameterName">The parameter name.</param>
-    /// <param name="builder">The parameter builder action.</param>
-    /// <returns>The <see cref="FluentMethodBuilder"/> instance.</returns>
-    public FluentMethodBuilder Param(
-        string typeName,
+    public FluentMethodBuilder Param<T>(
         string parameterName,
         Action<FluentParameterBuilder> builder = null)
     {
-        var parameterBuilder = new FluentParameterBuilder(typeName, parameterName);
+        return this.Param(parameterName, typeof(T).FullName);
+    }
+
+    /// <summary>
+    /// Adds a parameter to the method.
+    /// </summary>
+    /// <param name="parameterName">The parameter name.</param>
+    /// <param name="typeName">The parameter type name.</param>
+    /// <param name="builder">The parameter builder action.</param>
+    /// <returns>The <see cref="FluentMethodBuilder"/> instance.</returns>
+    public FluentMethodBuilder Param(
+        string parameterName,
+        string typeName,
+        Action<FluentParameterBuilder> builder = null)
+    {
+        var parameterBuilder = new FluentParameterBuilder(parameterName, typeName);
         builder?.Invoke(parameterBuilder);
         this.parameters ??= new List<FluentParameterBuilder>();
         this.parameters.Add(parameterBuilder);
@@ -166,10 +203,21 @@ public class FluentMethodBuilder
     /// </summary>
     /// <param name="action">The method body.</param>
     /// <returns>The <see cref="FluentParameterBuilder"/> instance.</returns>
-    public FluentMethodBuilder Body(Action<StringBuilder> action)
+    public FluentMethodBuilder Body(Action<FluentCodeBuilder> action)
     {
-        this.body = new StringBuilder();
-        action(this.body);
+        var code = new FluentCodeBuilder();
+        action(code);
+        return this.Body(code);
+    }
+
+    /// <summary>
+    /// Sets the method body.
+    /// </summary>
+    /// <param name="codeBuilder">The method body.</param>
+    /// <returns>The <see cref="FluentParameterBuilder"/> instance.</returns>
+    public FluentMethodBuilder Body(FluentCodeBuilder codeBuilder)
+    {
+        this.body = codeBuilder;
         return this;
     }
 
@@ -177,14 +225,15 @@ public class FluentMethodBuilder
     /// Builds the method definition.
     /// </summary>
     /// <returns>The method definition.</returns>
-    public string Build()
+    public string Build(bool isConstructor = false)
     {
-        return Build(0);
+        return Build(0, isConstructor);
     }
 
-    internal string Build(int indent)
+    internal string Build(int indent, bool isConstructor = false)
     {
         var indentStr = new string(' ', indent);
+        var indentTabStr = new string(' ', 4);
 
         var parms = string.Empty;
         if (this.parameters != null)
@@ -211,14 +260,31 @@ public class FluentMethodBuilder
             }
         }
 
-        var asyncValue = this.async ? "async " : string.Empty;
+        if (isConstructor)
+        {
+            methodDefinition
+                .Append(indentStr)
+                .AppendLine($"{this.accessibility} {this.methodName}({parms})")
+                .Append(indentStr)
+                .AppendLine("{");
+        }
+        else
+        {
+            var asyncValue = this.async ? "async " : string.Empty;
+            methodDefinition
+                .Append(indentStr)
+                .AppendLine($"{this.accessibility} {asyncValue}{this.returnType} {this.methodName}({parms})")
+                .Append(indentStr)
+                .AppendLine("{");
+        }
+
+        if (this.body != null)
+        {
+            methodDefinition
+                .Append(this.body.Build(indent + 4));
+        }
+
         methodDefinition
-            .Append(indentStr)
-            .AppendLine($"{this.accessibility} {asyncValue}{this.returnType} {this.methodName}({parms})")
-            .Append(indentStr)
-            .AppendLine("{")
-            .Append(indentStr)
-            .AppendLine(this.body.ToString())
             .Append(indentStr)
             .AppendLine("}");
 

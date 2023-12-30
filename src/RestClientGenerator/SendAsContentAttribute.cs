@@ -14,12 +14,12 @@ public class SendAsContentAttribute
     /// <summary>
     /// Gets or sets the content type.
     /// </summary>
-    public string ContentType { get; set; }
+    public string ContentType { get; set; } = "application/json";
 
     /// <summary>
     /// Gets or sets the encoding.
     /// </summary>
-    public Encoding Encoding { get; set; }
+    public Encoding Encoding { get; set; } = Encoding.UTF8;
 
     /// <summary>
     /// Gets or sets a value indicating whether or not to send as multipart.

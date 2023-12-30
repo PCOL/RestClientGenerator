@@ -43,9 +43,9 @@ public class FluentParameterBuilder
     /// <summary>
     /// Initialises a new instance of the <see cref="FluentParameterBuilder"/> class.
     /// </summary>
-    /// <param name="typeName">The type name.</param>
     /// <param name="parameterName">The parameter name.</param>
-    public FluentParameterBuilder(string typeName, string parameterName)
+    /// <param name="typeName">The type name.</param>
+    public FluentParameterBuilder(string parameterName, string typeName)
     {
         this.typeName = typeName;
         this.parameterName = parameterName;
@@ -59,6 +59,12 @@ public class FluentParameterBuilder
     public FluentParameterBuilder TypeName(string typeName)
     {
         this.typeName = typeName;
+        return this;
+    }
+
+    public FluentParameterBuilder Type<T>()
+    {
+        this.typeName = typeof(T).FullName;
         return this;
     }
 

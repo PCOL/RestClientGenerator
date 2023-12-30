@@ -7,5 +7,6 @@ using RestClient;
 /// </summary>
 [RestClient(typeof(IClient))]
 public partial class ClientContext
+    : RestClientContext
 {
 }

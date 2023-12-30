@@ -9,7 +9,15 @@
     public class RestClientAttribute
         : Attribute
     {
+        /// <summary>
+        /// Gets or sets the client type name.
+        /// </summary>
         public string ClientTypeName { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether or not debugging logs are enabled.
+        /// </summary>
+        public bool DebuggingLogs { get; set; }
 
         /// <summary>
         /// Initialises a new instance of the <see cref="RestClientAttribute"/> class.

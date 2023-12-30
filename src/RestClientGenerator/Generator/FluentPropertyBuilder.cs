@@ -12,12 +12,12 @@ public class FluentPropertyBuilder
     private readonly string propertyName;
 
     /// <summary>
-    /// The methods accessability.
+    /// The properties accessability.
     /// </summary>
     private string accessibility;
 
     /// <summary>
-    /// The methods return type.
+    /// The properties return type.
     /// </summary>
     private string returnType = "void";
 
@@ -49,12 +49,12 @@ public class FluentPropertyBuilder
     /// <summary>
     /// The get body of the property.
     /// </summary>
-    private StringBuilder getBody;
+    private FluentCodeBuilder getBody;
 
     /// <summary>
     /// The set body of the property.
     /// </summary>
-    private StringBuilder setBody;
+    private FluentCodeBuilder setBody;
 
     /// <summary>
     /// A list of parameters.
@@ -156,13 +156,13 @@ public class FluentPropertyBuilder
     /// </summary>
     /// <param name="action">The get body.</param>
     /// <returns>The <see cref="FluentPropertyBuilder"/> instance.</returns>
-    public FluentPropertyBuilder Getter(Action<StringBuilder> action, Accessability? accessability = null)
+    public FluentPropertyBuilder Getter(Action<FluentCodeBuilder> action, Accessability? accessability = null)
     {
         this.hasGetter = true;
         this.getterAccessability = accessability;
         if (action != null)
         {
-            this.getBody = new StringBuilder();
+            this.getBody = new FluentCodeBuilder();
             action(this.getBody);
         }
 
@@ -174,13 +174,13 @@ public class FluentPropertyBuilder
     /// </summary>
     /// <param name="action">The get body.</param>
     /// <returns>The <see cref="FluentPropertyBuilder"/> instance.</returns>
-    public FluentPropertyBuilder Setter(Action<StringBuilder> action, Accessability? accessability = null)
+    public FluentPropertyBuilder Setter(Action<FluentCodeBuilder> action, Accessability? accessability = null)
     {
         this.hasSetter = true;
         this.setterAccessability = accessability;
         if (action != null)
         {
-            this.setBody = new StringBuilder();
+            this.setBody = new FluentCodeBuilder();
             action(this.setBody);
         }
 
@@ -199,6 +199,7 @@ public class FluentPropertyBuilder
     internal string Build(int indent)
     {
         var indentStr = new string(' ', indent);
+        var indentTabStr = new string(' ', 4);
 
         var parms = string.Empty;
         if (this.parameters != null)
@@ -249,17 +250,14 @@ public class FluentPropertyBuilder
             {
                 propertyDefinition
                     .Append(indentStr)
-                    .Append(indentStr)
+                    .Append(indentTabStr)
                     .AppendLine("get")
                     .Append(indentStr)
-                    .Append(indentStr)
+                    .Append(indentTabStr)
                     .AppendLine("{")
+                    .Append(this.getBody.Build(indent + 8))
                     .Append(indentStr)
-                    .Append(indentStr)
-                    .Append(indentStr)
-                    .Append(this.getBody.ToString())
-                    .Append(indentStr)
-                    .Append(indentStr)
+                    .Append(indentTabStr)
                     .AppendLine("}");
             }
 
@@ -273,17 +271,14 @@ public class FluentPropertyBuilder
 
                 propertyDefinition
                     .Append(indentStr)
-                    .Append(indentStr)
+                    .Append(indentTabStr)
                     .AppendLine("set")
                     .Append(indentStr)
-                    .Append(indentStr)
+                    .Append(indentTabStr)
                     .AppendLine("{")
+                    .Append(this.setBody.Build(indent + 8))
                     .Append(indentStr)
-                    .Append(indentStr)
-                    .Append(indentStr)
-                    .Append(this.setBody.ToString())
-                    .Append(indentStr)
-                    .Append(indentStr)
+                    .Append(indentTabStr)
                     .AppendLine("}");
             }
 
