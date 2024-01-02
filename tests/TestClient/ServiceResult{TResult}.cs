@@ -1,5 +1,7 @@
 ﻿namespace TestClient;
 
+using System.Text.Json.Serialization;
+
 /// <summary>
 /// Implemenetation of the <see cref="IServiceResult{TResult}"/> interface.
 /// </summary>

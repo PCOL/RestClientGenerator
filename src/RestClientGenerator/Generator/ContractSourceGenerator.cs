@@ -21,13 +21,13 @@ public class ContractSourceGenerator
     public void Initialize(GeneratorInitializationContext context)
     {
         context.RegisterForSyntaxNotifications(() =>
-            new AttributeSyntaxReceiver<GenerateContractAttribute, RestClientAttribute>());
+            new AttributeSyntaxReceiver<GenerateContractAttribute, HttpClientContractAttribute, RestClientAttribute>());
     }
 
     /// <inheritdoc/>
     public void Execute(GeneratorExecutionContext context)
     {
-        if (context.SyntaxReceiver is not AttributeSyntaxReceiver<GenerateContractAttribute, RestClientAttribute> syntaxReceiver)
+        if (context.SyntaxReceiver is not AttributeSyntaxReceiver<GenerateContractAttribute, HttpClientContractAttribute, RestClientAttribute> syntaxReceiver)
         {
             return;
         }
@@ -38,22 +38,53 @@ public class ContractSourceGenerator
 
     private void GenerateClients(
         GeneratorExecutionContext context,
-        AttributeSyntaxReceiver<GenerateContractAttribute, RestClientAttribute> syntaxReceiver)
+        AttributeSyntaxReceiver<GenerateContractAttribute, HttpClientContractAttribute, RestClientAttribute> syntaxReceiver)
     {
         foreach (var interfaceSyntax in syntaxReceiver.Interfaces)
         {
+            var builderContext = new ClassBuilderContext();
+            
             // Converting the interface to semantic model to access much more meaningful data.
-            var model = context.Compilation.GetSemanticModel(interfaceSyntax.SyntaxTree);
+            builderContext.Model = context.Compilation.GetSemanticModel(interfaceSyntax.SyntaxTree);
 
             // Parse to declared symbol, so you can access each part of code separately,
             // such as interfaces, methods, members, contructor parameters etc.
-            var symbol = model.GetDeclaredSymbol(interfaceSyntax);
+            builderContext.Symbol = builderContext.Model.GetDeclaredSymbol(interfaceSyntax);
 
-            var @namespace = GetNamespaceRecursively(symbol.ContainingNamespace);
-            var @interface = symbol.Name;
-            var className = $"{@interface.RemoveLeadingI()}_Contract";
-            var classBuilder = new FluentClassBuilder(className)
-                .Namespace($"{@namespace}.Contracts")
+            builderContext.Namespace = GetNamespaceRecursively(builderContext.Symbol.ContainingNamespace);
+            builderContext.TypeName = builderContext.Symbol.Name;
+            builderContext.ClassName = $"{builderContext.TypeName.RemoveLeadingI()}_Contract";
+
+            builderContext.Symbol.GetAttributeNamedArguments(
+                nameof(HttpClientContractAttribute),
+                new (string, string, Action<object>)[]
+                {
+                    (nameof(HttpClientContractAttribute.Route), nameof(String), (v) => builderContext.Route = (string)v),
+                    (nameof(HttpClientContractAttribute.ContentType), nameof(String), (v) => builderContext.ContentType = (string)v),
+                });
+
+            ////foreach (var attr in builderContext.Symbol.GetAttributes())
+            ////{
+            ////    if (attr.AttributeClass.Name == nameof(HttpClientContractAttribute))
+            ////    {
+            ////        foreach (var arg in attr.NamedArguments)
+            ////        {
+            ////            if (arg.Key == nameof(HttpClientContractAttribute.Route) &&
+            ////                arg.Value.Type.Name == nameof(String))
+            ////            {
+            ////                builderContext.Route = (string)arg.Value.Value;
+            ////            }
+            ////            else if (arg.Key == nameof(HttpClientContractAttribute.ContentType) &&
+            ////                arg.Value.Type.Name == nameof(String))
+            ////            {
+            ////                builderContext.ContentType = (string)arg.Value.Value;
+            ////            }
+            ////        }
+            ////    }
+            ////}
+
+            var classBuilder = new FluentClassBuilder(builderContext.ClassName)
+                .Namespace($"{builderContext.Namespace}.Contracts")
                 .Using("System")
                 .Using("System.Net")
                 .Using("System.Net.Http")
@@ -61,7 +92,7 @@ public class ContractSourceGenerator
                 .Using("System.Threading.Tasks")
                 .Public()
                 .Partial()
-                .Implements(@interface)
+                .Implements(builderContext.TypeName)
                 .Field<RestClientContext>("context")
                 .Constructor(c => c
                     .Public())
@@ -71,18 +102,32 @@ public class ContractSourceGenerator
                     .Body(c => c
                         .Assign("this.context", "context")));
 
-            foreach (var member in symbol.GetAllMembers())
+            foreach (var member in builderContext.Symbol.GetAllMembers())
             {
                 if (member is IMethodSymbol methodMember)
                 {
-                    BuildMethodSubClass(model, member, methodMember, classBuilder);
+                    var methodBuilderContext = new MethodBuilderContext()
+                    {
+                        ClassBuilderContext = builderContext,
+                        ClassBuilder = classBuilder,
+                        Member = member,
+                        MethodMember = methodMember,
+                        Route = builderContext.Route,
+                        ContentType = builderContext.ContentType ?? "application/json"
+                    };
+
+                    methodBuilderContext.ProcessAttributes();
+
+                    ////BuildMethodSubClass(methodBuilderContext);
+
+                    methodBuilderContext.Build();
                 }
             }
 
             var sourceCode = classBuilder.Build();
 
             context.AddSource(
-                $"{className}.g.cs",
+                $"{builderContext.ClassName}.g.cs",
                 SourceText.From(sourceCode, Encoding.UTF8));
 
             Console.WriteLine(sourceCode);
@@ -91,7 +136,7 @@ public class ContractSourceGenerator
 
     private void GenerateRestClientContexts(
         GeneratorExecutionContext context,
-        AttributeSyntaxReceiver<GenerateContractAttribute, RestClientAttribute> syntaxReceiver)
+        AttributeSyntaxReceiver<GenerateContractAttribute, HttpClientContractAttribute, RestClientAttribute> syntaxReceiver)
     {
         foreach (var classSyntax in syntaxReceiver.Classes)
         {
@@ -109,6 +154,15 @@ public class ContractSourceGenerator
 
             var @namespace = GetNamespaceRecursively(symbol.ContainingNamespace);
             var typeName = "Unknown";
+
+            classBuilder = new FluentClassBuilder(className)
+                .Namespace(@namespace)
+                .Using("System.Threading")
+                .Using("System.Threading.Tasks")
+                .Using($"{@namespace}.Contracts")
+                .Public()
+                .Partial();
+
             foreach (var attr in symbol.GetAttributes())
             {
                 if (attr.AttributeClass.Name == nameof(RestClientAttribute))
@@ -120,18 +174,13 @@ public class ContractSourceGenerator
 
                     typeName = name.TrimStart('I');
 
-                    classBuilder = new FluentClassBuilder(className)
-                        .Namespace(@namespace)
-                        .Using("System.Threading")
-                        .Using("System.Threading.Tasks")
-                        .Using($"{@namespace}.Contracts")
-                        .Public()
-                        .Partial()
+                    classBuilder
                         .Method($"Get{typeName}", m => m
                             .Public()
                             .Returns(firstParam.Value.ToString())
                             .Body(c => c
                                 .Return($"new {typeName}_Contract(this)")));
+
                 }
             }
 
@@ -156,20 +205,18 @@ public class ContractSourceGenerator
     }
 
     private void BuildMethodSubClass(
-        SemanticModel semanticModel,
-        ISymbol member,
-        IMethodSymbol methodMember,
-        FluentClassBuilder classBuilder)
+        MethodBuilderContext methodBuilderContext)
     {
-        var memberClassName = $"{methodMember.Name}_class";
-        classBuilder.SubClass(
+        var memberClassName = $"{methodBuilderContext.MethodMember.Name}_class";
+        methodBuilderContext.ClassBuilder.SubClass(
             memberClassName,
             methodSubClassBuilder =>
             {
-                var contentParameter = this.GetParameterWithAttribute(
-                    methodMember,
-                    nameof(SendAsContentAttribute),
-                    out var contentAttribute);
+                var contentParameter = methodBuilderContext
+                    .MethodMember
+                    .GetParameterWithAttribute(
+                        nameof(SendAsContentAttribute),
+                        out var contentAttribute);
 
                 methodSubClassBuilder
                     .Private()
@@ -180,21 +227,11 @@ public class ContractSourceGenerator
                         .Body(c => c.Assign("this.context", "context")));
 
                 var sendMethod = BuildSendMethod(
-                    semanticModel,
-                    member,
-                    methodMember,
+                    methodBuilderContext.ClassBuilderContext,
+                    methodBuilderContext.Member,
+                    methodBuilderContext.MethodMember,
                     contentParameter,
                     methodSubClassBuilder);
-
-                ////methodSubClassBuilder.Method("SendAsync")
-                ////    .Private()
-                ////    .Async()
-                ////    .Returns("System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage>")
-                ////    .Param<CancellationToken>("cancellationToken")
-                ////    .Body(c => c
-                ////        .UsingBlock("var request = this.CreateRequest()", b => b
-                ////            .Variable("var", "httpClient", "this.context.GetHttpClient()")
-                ////            .Return("await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false)")));
 
                 var createRequestMethod = methodSubClassBuilder.Method("CreateRequest")
                     .Private()
@@ -211,61 +248,30 @@ public class ContractSourceGenerator
                     .Returns<string>()
                     .Body(c => c.Return("null"));
 
-                var innerReturnType = this.GetInnerType(methodMember.ReturnType.ToDisplayParts());
+                var innerReturnType = methodBuilderContext
+                    .MethodMember
+                    .ReturnType
+                    .ToDisplayParts()
+                    .GetInnerType();
 
                 var executeMethod = BuildExecuteMethod(
-                    semanticModel,
-                    member,
-                    methodMember,
+                    methodBuilderContext.ClassBuilderContext,
+                    methodBuilderContext.Member,
+                    methodBuilderContext.MethodMember,
                     contentParameter,
                     methodSubClassBuilder);
-
-                ////var executeCode = new FluentCodeBuilder()
-                ////    .Variable<HttpResponseMessage>("response")
-                ////    .Variable("var", "retry", "this.CreateRetry()")
-                ////    .If("retry != null", m => m
-                ////        .Assign("response", "await retry.ExecuteAsync(() => { return this.SendAsync(cancellationToken); }).ConfigureAwait(false);"))
-                ////    .Else(m => m
-                ////        .Assign("response", "await this.SendAsync(cancellationToken).ConfigureAwait(false)"))
-                ////    .BlankLine()
-                ////    .Return("await this.ProcessResponseAsync(response)");
-
-                ////var executeMethod = methodSubClassBuilder.Method("ExecuteAsync")
-                ////    .Public()
-                ////    .Async()
-                ////    .Returns(methodMember.ReturnType.ToString())
-                ////    .Params(
-                ////        pb =>
-                ////        {
-                ////            var hasCancellationToken = false;
-                ////            foreach (var param in methodMember.Parameters)
-                ////            {
-                ////                var typeName = param.Type.OriginalDefinition.ToString();
-                ////                pb.Param(param.Name, typeName);
-                ////                if (typeName == "System.Threading.CancellationToken")
-                ////                {
-                ////                    hasCancellationToken = true;
-                ////                }
-                ////            }
-
-                ////            if (hasCancellationToken == false)
-                ////            {
-                ////                pb.Param<CancellationToken>("cancellationToken", p => p.Default("default"));
-                ////            }
-                ////        })
-                ////    .Body(executeCode);
 
                 var processResponseMethod = methodSubClassBuilder.Method("ProcessResponseAsync")
                     .Private()
                     .Async()
-                    .Returns(methodMember.ReturnType.ToString())
+                    .Returns(methodBuilderContext.MethodMember.ReturnType.ToString())
                     .Param<HttpResponseMessage>("response")
                     .Body(c => c
                         .AddLine("response.EnsureSuccessStatusCode();")
                         .AddLine("await Task.Yield();")
                         .Return("null"));
 
-                var attrs = member.GetAttributes();
+                var attrs = methodBuilderContext.Member.GetAttributes();
                 foreach (var attr in attrs)
                 {
                     if (attr.AttributeClass.BaseType.ContainingNamespace.Name == nameof(RestClient))
@@ -287,7 +293,7 @@ public class ContractSourceGenerator
                                 createRequestMethod
                                     .Body(c => c
                                         .Variable("var", "request", "new HttpRequestMessage(HttpMethod.Get, this.GetRequestUri())")
-                                        .AddLine("request.Headers.Add(\"Accept\", \"application/json\");")
+                                        .AddLine($"request.Headers.Add(\"Accept\", \"{methodBuilderContext.ContentType}\");")
                                         .Return("request"));
                             }
                             else
@@ -319,16 +325,13 @@ public class ContractSourceGenerator
 
                         foreach (var arg in attr.NamedArguments)
                         {
-                            if (arg.Key == nameof(RetryAttribute.DoubleWaitTimeOnRetry) &&
-                                arg.Value.Type.Name == nameof(Boolean))
+                            if (arg.GetValue<bool>(nameof(RetryAttribute.DoubleWaitTimeOnRetry), nameof(Boolean), out var doubleOnRetry)) 
                             {
-                                var b = (bool)arg.Value.Value;
-                                retryCode.AddLine($".SetDoubleWaitTimeOnRetry({b.ToString().ToLower()})", 1);
+                                retryCode.AddLine($".SetDoubleWaitTimeOnRetry({doubleOnRetry.ToString().ToLower()})", 1);
                             }
-                            else if (arg.Key == nameof(RetryAttribute.RetryCount))
+                            else if (arg.GetValue<int>(nameof(RetryAttribute.RetryCount), nameof(Int32), out var retryCount))
                             {
-                                var count = (int)arg.Value.Value;
-                                retryCode.AddLine($".SetRetryLimit({count})", 1);
+                                retryCode.AddLine($".SetRetryLimit({retryCount})", 1);
                             }
                         }
 
@@ -356,17 +359,17 @@ public class ContractSourceGenerator
                 }
             });
 
-        var parametersStr = string.Join(", ", methodMember.Parameters.Select(p => p.Name));
+        var parametersStr = string.Join(", ", methodBuilderContext.MethodMember.Parameters.Select(p => p.Name));
 
-        classBuilder.Method(
-            methodMember.Name,
+        methodBuilderContext.ClassBuilder.Method(
+            methodBuilderContext.MethodMember.Name,
             m => m
                 .Public()
-                .Returns(methodMember.ReturnType.ToString())
+                .Returns(methodBuilderContext.MethodMember.ReturnType.ToString())
                 .Params(
                     pb =>
                     {
-                        foreach (var param in methodMember.Parameters)
+                        foreach (var param in methodBuilderContext.MethodMember.Parameters)
                         {
                             pb.Param(param.Name, param.Type.OriginalDefinition.ToString());
                         }
@@ -379,7 +382,7 @@ public class ContractSourceGenerator
     }
 
     private FluentMethodBuilder BuildExecuteMethod(
-        SemanticModel semanticModel,
+        ClassBuilderContext builderContext,
         ISymbol member,
         IMethodSymbol methodMember,
         IParameterSymbol contentParameterSymbol,
@@ -426,7 +429,7 @@ public class ContractSourceGenerator
     }
 
     private FluentMethodBuilder BuildSendMethod(
-        SemanticModel semanticModel,
+        ClassBuilderContext builderContext,
         ISymbol member,
         IMethodSymbol methodMember,
         IParameterSymbol contentParameterSymbol,
@@ -447,7 +450,7 @@ public class ContractSourceGenerator
 
             requestParam = contentParameterSymbol.Name;
         }
-
+    
         sendMethod
             .Param<CancellationToken>("cancellationToken")
             .Body(c => c
@@ -456,61 +459,5 @@ public class ContractSourceGenerator
                     .Return("await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false)")));
 
         return sendMethod;
-    }
-
-    private IParameterSymbol GetParameterWithAttribute(
-        IMethodSymbol methodMember,
-        string attributeName,
-        out AttributeData attribute)
-    {
-        attribute = null;
-        foreach (var param in methodMember.Parameters)
-        {
-            var attrs = param.GetAttributes();
-            if (attrs.Any() == true)
-            {
-                foreach (var attr in attrs)
-                {
-                    if (attr.AttributeClass.Name == attributeName)
-                    {
-                        attribute = attr;
-                        return param;
-                    }
-                }
-            }
-        }
-
-        return null;
-    }
-
-    private string GetInnerType(ImmutableArray<SymbolDisplayPart> parts)
-    {
-        var capture = false;
-        var typeName = string.Empty;
-        for(int i = 0; i < parts.Length; i++)
-        {
-            if (capture == false &&
-                parts[i].Kind == SymbolDisplayPartKind.Punctuation &&
-                parts[i].ToString() == "<")
-            {
-                capture = true;
-                continue;
-            }
-            else if (capture == true &&
-                parts[i].Kind == SymbolDisplayPartKind.Punctuation &&
-                parts[i].ToString() == ">" &&
-                i == parts.Length - 1)
-            {
-                capture = false;
-                continue;
-            }
-
-            if (capture == true)
-            {
-                typeName += parts[i].ToString();
-            }
-        }
-
-        return typeName;
     }
 }

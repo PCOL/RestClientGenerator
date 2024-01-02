@@ -1,6 +1,8 @@
 ﻿namespace RestClient;
 
+using System;
 using System.Net.Http;
+using System.Threading.Tasks;
 
 /// <summary>
 /// Represents the rest client options.
@@ -21,4 +23,6 @@ public class RestClientOptions
     /// Gets or sets the <see cref="IHttpClientFactory"/> to use.
     /// </summary>
     public IHttpClientFactory HttpClientFactory { get; set; }
+
+
 }

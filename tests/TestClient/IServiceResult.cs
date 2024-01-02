@@ -5,6 +5,9 @@ using System.Text.Json.Serialization;
 /// <summary>
 /// Defines the service result interface.
 /// </summary>
+[JsonDerivedType(typeof(ServiceResult<string>))]
+[JsonDerivedType(typeof(IServiceResult<string>))]
+[JsonPolymorphic(UnknownDerivedTypeHandling = JsonUnknownDerivedTypeHandling.FallBackToBaseType)]
 public interface IServiceResult
 {
     /// <summary>

@@ -14,6 +14,8 @@ public class Program
 {
     public static async Task Main(string[] args)
     {
+        var apiKey = "NmY2ZWE3MjA2ZjBjNDkyYjlkMTFlYTU1MmRmZjQxYmM6bjNZV21Mb2I2UW5BOVA3ZHVXZkhjS3JuM1ZNcjR6Nkpicmw4TWZuZStoYUVLeGRwR3l6cDA5RmtqMDlJdGoyOEhBU2xPT0xCWFVqU2l2Y2psNXhpeFE9PQ==";
+
         var context = new ClientContext();
         context.Options = new RestClientOptions()
         {
@@ -24,15 +26,19 @@ public class Program
         ////var result = await context.GetClient().GetWorkloadAsync("Test");
         ////Console.WriteLine(result);
 
-        var serviceResult = await context.GetClient().CreateWorkloadAsync(
-            new CreateWorkloadModel()
-            {
-                Name = "Test"
-            });
+        ////var serviceResult = await context.GetClient().CreateWorkloadAsync(
+        ////    new CreateWorkloadModel()
+        ////    {
+        ////        Name = "Test"
+        ////    });
+
+
+        var tokenResult = await context.GetTokenClient().GetTokenAsync(apiKey);
+
 
 
         var json = JsonSerializer.Serialize<IServiceResult<string>>(
-            serviceResult,
+            tokenResult,
             new JsonContext().GetTypeInfo(typeof(IServiceResult<string>)) as JsonTypeInfo<IServiceResult<string>>);
 
         Console.WriteLine(json);

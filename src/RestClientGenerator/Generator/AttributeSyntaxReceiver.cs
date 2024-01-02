@@ -9,10 +9,11 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 /// <summary>
 /// Attribute syntax receiver.
 /// </summary>
-public class AttributeSyntaxReceiver<TAttribute1, TAttribute2>
+public class AttributeSyntaxReceiver<TAttribute1, TAttribute2, TAttribute3>
     : ISyntaxReceiver
     where TAttribute1 : Attribute
     where TAttribute2 : Attribute
+    where TAttribute3 : Attribute
 {
     /// <summary>
     /// Gets a list of interfaces.
@@ -31,10 +32,15 @@ public class AttributeSyntaxReceiver<TAttribute1, TAttribute2>
             interfaceDeclarationSyntax.AttributeLists.Count > 0 &&
             interfaceDeclarationSyntax.AttributeLists
                 .Any(al => al.Attributes
-                    .Any(a => a.Name
+                    .Any(a =>
+                    {
+                        var attr = a.Name
                         .ToString()
-                        .EnsureEndsWith("Attribute")
-                        .Equals(typeof(TAttribute1).Name))))
+                        .EnsureEndsWith("Attribute");
+
+                        return attr.Equals(typeof(TAttribute1).Name) ||
+                            attr.Equals(typeof(TAttribute2).Name);
+                    })))
         {
             this.Interfaces.Add(interfaceDeclarationSyntax);
         }
@@ -45,7 +51,7 @@ public class AttributeSyntaxReceiver<TAttribute1, TAttribute2>
                     .Any(a => a.Name
                         .ToString()
                         .EnsureEndsWith("Attribute")
-                        .Equals(typeof(TAttribute2).Name))))
+                        .Equals(typeof(TAttribute3).Name))))
         {
             this.Classes.Add(classDeclarationSyntax);
         }

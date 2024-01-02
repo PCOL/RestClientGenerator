@@ -2,9 +2,12 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 public static class UtilityExtensionMethods
 {
@@ -216,5 +219,117 @@ public static class UtilityExtensionMethods
         }
 
         return false;
+    }
+
+    public static void GetAttributeNamedArguments(
+        this INamedTypeSymbol symbol,
+        string attributeName,
+        IEnumerable<(string, string, Action<object>)> propertySetters)
+    {
+        GetAttributeNamedArguments(symbol.GetAttributes(), attributeName, propertySetters);
+    }
+
+    public static void GetAttributeNamedArguments(
+        this ImmutableArray<AttributeData> attributes,
+        string attributeName,
+        IEnumerable<(string, string, Action<object>)> propertySetters)
+    {
+
+        foreach (var attr in attributes)
+        {
+            if (attr.AttributeClass.Name == nameof(HttpClientContractAttribute))
+            {
+                foreach (var arg in attr.NamedArguments)
+                {
+                    foreach (var (name, typeName, setter) in propertySetters)
+                    {
+                        if (arg.GetValue<object>(name, typeName, out var value))
+                        {
+                            setter(value);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    public static bool GetValue<T>(
+        this KeyValuePair<string, TypedConstant> argument,
+        string argName,
+        string argTypeName,
+        out T value)
+    {
+        value = default;
+        if (argument.Key == argName && argument.Value.Type.Name == argTypeName)
+        {
+            value = (T)argument.Value.Value;
+            return true;
+        }
+
+        return false;
+    }
+
+    internal static string GetInnerType(this ImmutableArray<SymbolDisplayPart> parts)
+    {
+        var capture = false;
+        var typeName = string.Empty;
+        for (int i = 0; i < parts.Length; i++)
+        {
+            if (capture == false &&
+                parts[i].Kind == SymbolDisplayPartKind.Punctuation &&
+                parts[i].ToString() == "<")
+            {
+                capture = true;
+                continue;
+            }
+            else if (capture == true &&
+                parts[i].Kind == SymbolDisplayPartKind.Punctuation &&
+                parts[i].ToString() == ">" &&
+                i == parts.Length - 1)
+            {
+                capture = false;
+                continue;
+            }
+
+            if (capture == true)
+            {
+                typeName += parts[i].ToString();
+            }
+        }
+
+        return typeName;
+    }
+
+    internal static IParameterSymbol GetParameterWithAttribute(
+        this IMethodSymbol methodMember,
+        string attributeName,
+        out AttributeData attribute)
+    {
+        return methodMember.Parameters.GetParameterWithAttribute(attributeName, out attribute);
+    }
+
+    internal static IParameterSymbol GetParameterWithAttribute(
+        this ImmutableArray<IParameterSymbol> parameters,
+        string attributeName,
+        out AttributeData attribute)
+    {
+        attribute = null;
+        foreach (var param in parameters)
+        {
+            var attrs = param.GetAttributes();
+            if (attrs.Any() == true)
+            {
+                foreach (var attr in attrs)
+                {
+                    if (attr.AttributeClass.Name == attributeName)
+                    {
+                        attribute = attr;
+                        return param;
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 }
