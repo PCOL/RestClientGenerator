@@ -1,8 +1,6 @@
 ﻿namespace RestClient;
 
-using System;
 using System.Net.Http;
-using System.Threading.Tasks;
 
 /// <summary>
 /// Represents the rest client options.

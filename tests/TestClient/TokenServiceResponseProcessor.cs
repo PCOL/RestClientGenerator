@@ -48,10 +48,18 @@ public class TokenServiceResponseProcessor
             if (response.Content.Headers.ContentLength > 0)
             {
                 var content = await response.Content.ReadAsStringAsync();
-                var model = new JsonContext().Deserialize<JsonObject>(content);
-                if (model.Properties.TryGetValue("error", out var message) == true)
+
+                try
                 {
-                    result.Error = new ErrorModel() { Message = message.ToString() };
+                    var model = new JsonContext().Deserialize<JsonObject>(content);
+                    if (model.Properties.TryGetValue("error", out var message) == true)
+                    {
+                        result.Error = new ErrorModel() { Message = message.ToString() };
+                    }
+                }
+                catch
+                {
+                    result.Error = new ErrorModel() { Message = content };
                 }
             }
 

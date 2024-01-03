@@ -237,20 +237,42 @@ public static class UtilityExtensionMethods
 
         foreach (var attr in attributes)
         {
-            if (attr.AttributeClass.Name == nameof(HttpClientContractAttribute))
+            if (attr.AttributeClass.Name == attributeName)
             {
-                foreach (var arg in attr.NamedArguments)
+                attr.NamedArguments.GetNamedArguments(propertySetters);
+            }
+        }
+    }
+
+    public static void GetNamedArguments(
+        this ImmutableArray<KeyValuePair<string , TypedConstant>> args,
+        IEnumerable<(string, string, Action<object>)> propertySetters)
+    {
+        foreach (var arg in args)
+        {
+            foreach (var (name, typeName, setter) in propertySetters)
+            {
+                if (arg.GetValue<object>(name, typeName, out var value))
                 {
-                    foreach (var (name, typeName, setter) in propertySetters)
-                    {
-                        if (arg.GetValue<object>(name, typeName, out var value))
-                        {
-                            setter(value);
-                        }
-                    }
+                    setter(value);
                 }
             }
         }
+    }
+
+    public static T GetNamedArgument<T>(
+        this ImmutableArray<KeyValuePair<string, TypedConstant>> args,
+        string name)
+    {
+        foreach (var arg in args)
+        {
+            if (arg.GetValue<T>(name, typeof(T).Name, out var value))
+            {
+                return value;
+            }
+        }
+
+        return default;
     }
 
     public static bool GetValue<T>(

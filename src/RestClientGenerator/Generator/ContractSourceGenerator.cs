@@ -63,29 +63,10 @@ public class ContractSourceGenerator
                     (nameof(HttpClientContractAttribute.ContentType), nameof(String), (v) => builderContext.ContentType = (string)v),
                 });
 
-            ////foreach (var attr in builderContext.Symbol.GetAttributes())
-            ////{
-            ////    if (attr.AttributeClass.Name == nameof(HttpClientContractAttribute))
-            ////    {
-            ////        foreach (var arg in attr.NamedArguments)
-            ////        {
-            ////            if (arg.Key == nameof(HttpClientContractAttribute.Route) &&
-            ////                arg.Value.Type.Name == nameof(String))
-            ////            {
-            ////                builderContext.Route = (string)arg.Value.Value;
-            ////            }
-            ////            else if (arg.Key == nameof(HttpClientContractAttribute.ContentType) &&
-            ////                arg.Value.Type.Name == nameof(String))
-            ////            {
-            ////                builderContext.ContentType = (string)arg.Value.Value;
-            ////            }
-            ////        }
-            ////    }
-            ////}
-
             var classBuilder = new FluentClassBuilder(builderContext.ClassName)
                 .Namespace($"{builderContext.Namespace}.Contracts")
                 .Using("System")
+                .Using("System.Collections.Generic")
                 .Using("System.Net")
                 .Using("System.Net.Http")
                 .Using("System.Threading")
@@ -116,11 +97,11 @@ public class ContractSourceGenerator
                         ContentType = builderContext.ContentType ?? "application/json"
                     };
 
-                    methodBuilderContext.ProcessAttributes();
+                    methodBuilderContext.ProcessParameters();
 
-                    ////BuildMethodSubClass(methodBuilderContext);
+                    methodBuilderContext.ProcessMethodAttributes();
 
-                    methodBuilderContext.Build();
+                    methodBuilderContext.Generate();
                 }
             }
 
