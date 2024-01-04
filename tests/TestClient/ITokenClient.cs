@@ -24,5 +24,5 @@ public interface ITokenClient
         [AuthorizationHeader("Basic")]
         string apiKey,
         [SendAsFormUrl(Name = "scope")]
-        string scopes = "platform");
+        string scopes = "platform cluster");
 }

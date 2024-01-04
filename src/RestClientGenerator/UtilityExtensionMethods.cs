@@ -7,9 +7,8 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-public static class UtilityExtensionMethods
+internal static class UtilityExtensionMethods
 {
     /// <summary>
     /// Throws an exception if the passed argument is null.
@@ -245,7 +244,7 @@ public static class UtilityExtensionMethods
     }
 
     public static void GetNamedArguments(
-        this ImmutableArray<KeyValuePair<string , TypedConstant>> args,
+        this ImmutableArray<KeyValuePair<string, TypedConstant>> args,
         IEnumerable<(string, string, Action<object>)> propertySetters)
     {
         foreach (var arg in args)
@@ -353,5 +352,36 @@ public static class UtilityExtensionMethods
         }
 
         return null;
+    }
+
+    public static string BuildParametersList(
+        this IMethodSymbol method,
+        bool includeCancellationToken = false)
+    {
+        return method?.Parameters.BuildParametersList(includeCancellationToken);
+    }
+
+    public static string BuildParametersList(
+        this ImmutableArray<IParameterSymbol> parameters,
+        bool includeCancellationToken = false)
+    {
+        if (parameters != null)
+        {
+            var paramsList = parameters
+                .Select(p => p.Name)
+                .ToList();
+
+            if (includeCancellationToken)
+            {
+                if (paramsList.Contains("cancellationToken") == false)
+                {
+                    paramsList.Add("cancellationToken");
+                }
+            }
+
+            return string.Join(", ", paramsList);
+        }
+
+        return string.Empty;
     }
 }

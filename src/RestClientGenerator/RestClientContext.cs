@@ -1,14 +1,25 @@
 ﻿namespace RestClient;
 
-using System;
 using System.Net.Http;
 
+/// <summary>
+/// 
+/// </summary>
 public abstract class RestClientContext
 {
+    /// <summary>
+    /// The REST client optins.
+    /// </summary>
     private RestClientOptions options;
 
+    /// <summary>
+    /// The REST client <see cref="HttpClient"/>.
+    /// </summary>
     private HttpClient httpClient;
 
+    /// <summary>
+    /// Gets or set the client options.
+    /// </summary>
     public RestClientOptions Options
     {
         get => this.options ??= new RestClientOptions();
@@ -19,31 +30,25 @@ public abstract class RestClientContext
         }
     }
 
-    ////public TClient GetClient<TClient>()
-    ////{
-    ////    return (TClient)GetClient(typeof(TClient));
-    ////}
-
-    ////public object GetClient(Type clientType)
-    ////{
-    ////    clientType.ThrowIfArgumentNull(nameof(clientType));
-    ////    clientType.ThrowIfNotInterface(nameof(clientType));
-
-    ////    return null;
-    ////}
-
     /// <summary>
     /// Gets the <see cref="HttpClient"/>.
     /// </summary>
+    /// <param name="name">A client name.</param>
     /// <returns>A <see cref="HttpClient"/>.</returns>
-    public HttpClient GetHttpClient()
+    public HttpClient GetHttpClient(string name = "")
     {
+        if (this.options.HttpClientFactory != null)
+        {
+            return this.options.HttpClientFactory.CreateClient(name);
+        }
+            
         if (this.httpClient == null)
         {
             lock (this)
             {
                 if (this.httpClient == null)
                 {
+
                     this.httpClient = this.options.HttpClient ?? new HttpClient();
                 }
             }
@@ -52,7 +57,19 @@ public abstract class RestClientContext
         return this.httpClient;
     }
 
+    /// <summary>
+    /// Serializes an object.
+    /// </summary>
+    /// <typeparam name="T">The object type.</typeparam>
+    /// <param name="obj">The object to serialize.</param>
+    /// <returns>A string representation of the object.</returns>
     public abstract string Serialize<T>(T obj);
 
-    public abstract T Deserialize<T>(string json);
+    /// <summary>
+    /// Deserializes an object.
+    /// </summary>
+    /// <typeparam name="T">The object type.</typeparam>
+    /// <param name="content">The content to deserialize.</param>
+    /// <returns>An object representation of the content.</returns>
+    public abstract T Deserialize<T>(string content);
 }

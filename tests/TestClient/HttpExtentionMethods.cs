@@ -67,9 +67,7 @@ public static class HttpExtensionMethods
         {
             try
             {
-                return JsonSerializer.Deserialize<TResult>(
-                    content,
-                    new JsonContext().GetTypeInfo(typeof(TResult)) as JsonTypeInfo<TResult>);
+                return new JsonContext().Deserialize<TResult>(content);
             }
             catch
             {

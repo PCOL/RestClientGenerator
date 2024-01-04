@@ -10,13 +10,15 @@ using RestClient;
 public partial class ClientContext
     : RestClientContext
 {
-    public override T Deserialize<T>(string json)
+    /// <inheritdoc/>
+    public override T Deserialize<T>(string content)
     {
-        return new JsonContext().Deserialize<T>(json);
+        return new JsonContext().Deserialize<T>(content);
     }
 
+    /// <inheritdoc/>
     public override string Serialize<T>(T obj)
     {
-        return new JsonContext().Serialize<T>(obj);
+        return new JsonContext().Serialize(obj);
     }
 }

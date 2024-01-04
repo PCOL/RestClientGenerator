@@ -22,5 +22,8 @@ public class RestClientOptions
     /// </summary>
     public IHttpClientFactory HttpClientFactory { get; set; }
 
-
+    /// <summary>
+    /// Gets or sets the <see cref="IAuthorizationHeaderFactory"/> to use.
+    /// </summary>
+    public IAuthorizationHeaderFactory AuthorizationHeaderFactory { get; set; }
 }

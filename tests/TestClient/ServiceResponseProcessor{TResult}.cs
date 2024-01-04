@@ -26,10 +26,7 @@ public class ServiceResponseProcessor<TResult>
                 var content = await response.Content.ReadAsStringAsync();
                 if (string.IsNullOrEmpty(content) == false)
                 {
-                    result.Result = JsonSerializer.Deserialize<TResult>(
-                        content,
-                        new JsonContext().GetTypeInfo(typeof(TResult)) as JsonTypeInfo<TResult>);
-
+                    result.Result = new JsonContext().Deserialize<TResult>(content);
                 }
             }
 

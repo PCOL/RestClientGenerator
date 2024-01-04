@@ -209,16 +209,29 @@ internal class MethodBuilderContext
                     var key = attr.ConstructorArguments.First().Value.ToString();
                     var format = attr.NamedArguments.GetNamedArgument<String>(nameof(SendAsHeaderAttribute.Format));
 
-                    var value = $"{{{parameterSymbol.Name}}}";
+                    var value = $"$\"{{{parameterSymbol.Name}}}\"";
                     if (format != null)
                     {
-                        value = $"string.Format(\\\"{format.Replace("{", "{{").Replace("}", "}}")}\\\", \\\"{{{parameterSymbol.Name}}}\\\")";
+                        value = $"string.Format(\"{format}\", $\"{{{parameterSymbol.Name}}}\")";
                     }
 
                     this.AddHeader(key, value);
                 }
                 else if (attr.AttributeClass.Name == nameof(SendAsQueryAttribute))
                 {
+                    var key = attr.ConstructorArguments.First().Value.ToString();
+                    var format = attr.NamedArguments.GetNamedArgument<String>(nameof(SendAsQueryAttribute.Format));
+                    ////var encoding = attr.NamedArguments.GetNamedArgument<String>(nameof(SendAsQueryAttribute.Encoding));
+                    var base64 = attr.NamedArguments.GetNamedArgument<bool>(nameof(SendAsQueryAttribute.Base64));
+                    var typeName = attr.NamedArguments.GetNamedArgument<String>(nameof(SendAsQueryAttribute.SerializerType));
+
+                    var value = $"{{{parameterSymbol.Name}}}";
+                    if (format != null)
+                    {
+                        value = $"string.Format(\\\"{format.Replace("{", "{{").Replace("}", "}}")}\\\", \\\"{{{parameterSymbol.Name}}}\\\")";
+                    }
+
+                    this.AddQueryString(key, value);
                 }
             }
         }
@@ -266,16 +279,18 @@ internal class MethodBuilderContext
                 this.GenerateProcessResponseAsync(methodSubClassBuilder);
             });
 
+        var parametersStr = this.MethodMember.BuildParametersList();
+
         this.ClassBuilder.Method(
             this.MethodMember.Name,
             m => m
                 .Public()
                 .Returns(this.MethodMember.ReturnType.ToString())
-                .Params(p => this.AddParameters(p, this.MethodMember.Parameters))
+                .Params(p => this.AddParameters(p))
                 .Body(c => c
                     .Variable("var", "request", $"new {memberClassName}(this.context)")
-                    .AddLine("Console.WriteLine(request.GetRequestUri());")
-                    .Return($"request.ExecuteAsync({this.BuildParametersList()})")));
+                    .AddLine($"Console.WriteLine(request.GetRequestUri({parametersStr}));")
+                    .Return($"request.ExecuteAsync({parametersStr})")));
     }
 
     private void AddFormUrlProperty(TypedConstant key, string value)
@@ -351,12 +366,12 @@ internal class MethodBuilderContext
     private FluentMethodBuilder GenerateSendAsync(
         FluentClassBuilder builder)
     {
-        var parametersStr = this.BuildParametersList();
+        var parametersStr = this.MethodMember.BuildParametersList();
 
         var sendMethod = builder.Method("SendAsync")
             .Private()
             .Async()
-            .Params(p => AddParameters(p, this.MethodMember.Parameters, true))
+            .Params(p => AddParameters(p, true))
             .Returns("System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage>")
             .Body(c => c
                 .UsingBlock($"var request = this.CreateRequest({parametersStr})", b => b
@@ -380,6 +395,8 @@ internal class MethodBuilderContext
             }
         }
 
+        var parametersStr = this.MethodMember.BuildParametersList();
+
         var createRequestMethod = builder.Method("CreateRequest")
             .Private()
             .Params(p =>
@@ -392,55 +409,57 @@ internal class MethodBuilderContext
             .Returns<HttpRequestMessage>()
             .Body(c => c.AddLine("throw new NotSupportedException();"));
 
-        var createRequestCode = new FluentCodeBuilder();
+        var code = new FluentCodeBuilder()
+            .Variable("var", "requestUri", $"this.GetRequestUri({parametersStr})");
+
         if (this.RequestMethod == HttpMethod.Get)
         {
-            this.AddHeader("Accept", this.ContentType);
+            this.AddHeader("Accept", $"\"{this.ContentType}\"");
 
-            createRequestCode
-                .Variable("var", "request", "new HttpRequestMessage(HttpMethod.Get, this.GetRequestUri())")
+            code
+                .Variable("var", "request", $"new HttpRequestMessage(HttpMethod.Get, requestUri)")
                 .AddHeaders("request", this.headers);
 
-            AddAuthorization(createRequestCode);
+            AddAuthorization(code);
             
-            createRequestCode
+            code
                 .Return("request");
         }
         else if (this.RequestMethod == HttpMethod.Post)
         {
-            createRequestCode
-                .Variable("var", "request", "new HttpRequestMessage(HttpMethod.Post, this.GetRequestUri())")
+            code
+                .Variable("var", "request", "new HttpRequestMessage(HttpMethod.Post, requestUri)")
                 .AddHeaders("request", this.headers);
 
             if (this.formUrlProperties != null)
             {
-                createRequestCode
+                code
                     .AddLine("var list = new List<KeyValuePair<string, string>>()")
                     .AddLine("{");
 
                 foreach (var kvp in this.formUrlProperties)
                 {
-                    createRequestCode
+                    code
                         .AddLine($"    new KeyValuePair<string, string>(\"{kvp.Key}\", $\"{kvp.Value}\"),");
                 }
 
-                createRequestCode
+                code
                     .AddLine("};")
                     .BlankLine()
                     .AddLine($"request.Content = new FormUrlEncodedContent(list);");
             }
             else if (contentParameterSymbol != null)
             {
-                createRequestCode
+                code
                     .Variable("var", "json", $"this.context.Serialize({contentParameterSymbol.Name})")
                     .AddLine($"request.Content = new StringContent(json, System.Text.UTF8Encoding.UTF8, \"{this.ContentType}\");");
             }
 
-            AddAuthorization(createRequestCode);
-            createRequestCode.Return("request");
+            AddAuthorization(code);
+            code.Return("request");
         }
 
-        return createRequestMethod.Body(createRequestCode);
+        return createRequestMethod.Body(code);
     }
 
     private FluentMethodBuilder GenerateCreateRetry(FluentClassBuilder builder)
@@ -481,18 +500,21 @@ internal class MethodBuilderContext
     {
         var requestUriMethod = builder.Method("GetRequestUri")
             .Public()
-            .Returns<string>();
+            .Returns<string>()
+            .Params(p => AddParameters(p));
 
         if (string.IsNullOrWhiteSpace(this.RequestUri) == false)
         {
             requestUriMethod.Body(c => c
                 .Variable("var", "baseUrl", "this.context.Options.BaseUrl")
                 .AddQueryStrings("queryString", this.queryStrings)
+                .Variable("var", "url", $"$\"{this.RequestUri}\"")
+                .Variable("var", "fullUrl", "$\"{url}\" + queryString")
                 .BlankLine()
                 .If("baseUrl != null", c => c
-                    .Return($"baseUrl.TrimEnd('/') + \"/{this.RequestUri}\""))
+                    .Return("baseUrl.TrimEnd('/') + \"/\" + fullUrl"))
                 .BlankLine()
-                .AddLine($"return \"{this.RequestUri}\";")); ;
+                .Return("fullUrl"));
         }
         else
         {
@@ -506,7 +528,7 @@ internal class MethodBuilderContext
         FluentClassBuilder builder,
         IParameterSymbol contentParameterSymbol)
     {
-        var parametersStr = this.BuildParametersList(true);
+        var parametersStr = this.MethodMember.BuildParametersList(true);
         var contentParameter = contentParameterSymbol != null ? $"{contentParameterSymbol.Name}, " : string.Empty;
 
         var executeMethod = builder.Method("ExecuteAsync")
@@ -576,6 +598,13 @@ internal class MethodBuilderContext
 
     private void AddParameters(
         FluentParametersBuilder p,
+        bool addCancellatiomToken = false)
+    {
+        this.AddParameters(p, this.MethodMember.Parameters, addCancellatiomToken);
+    }
+
+    private void AddParameters(
+        FluentParametersBuilder p,
         ImmutableArray<IParameterSymbol> parameters,
         bool addCancellatiomToken = false)
     {
@@ -598,24 +627,5 @@ internal class MethodBuilderContext
         {
             p.Param<CancellationToken>("cancellationToken", p => p.Default("default"));
         }
-    }
-
-    private string BuildParametersList(bool includeCancellationToken = false)
-    {
-        var paramsList = this
-            .MethodMember
-            .Parameters
-            .Select(p => p.Name)
-            .ToList();
-
-        if (includeCancellationToken)
-        {
-            if (paramsList.Contains("cancellationToken") == false)
-            {
-                paramsList.Add("cancellationToken");
-            }
-        }
-
-        return string.Join(", ", paramsList);
     }
 }

@@ -15,7 +15,7 @@ internal static class FluentExtensionMethods
             foreach (var kvp in headers)
             {
                 code
-                    .AddLine($"{requestVariable}.Headers.Add(\"{kvp.Key}\", $\"{kvp.Value}\");");
+                    .AddLine($"{requestVariable}.Headers.Add(\"{kvp.Key}\", {kvp.Value});");
             }
         }
 
@@ -27,14 +27,15 @@ internal static class FluentExtensionMethods
         string variable,
         IDictionary<string, object> queryStrings)
     {
+        code.Variable("var", variable, "string.Empty");
+
         if (queryStrings != null)
         {
-            code.Variable("string", variable, "string.Empty()")
+            code
                 .Variable("string", "value", "null")
                 .BlankLine();
 
             var first = true;
-            var query = string.Empty;
             foreach (var queryString in queryStrings)
             {
                 if (first == true)
@@ -50,14 +51,15 @@ internal static class FluentExtensionMethods
                 {
                     var key = Uri.EscapeDataString(queryString.Key);
 
-                    code.Assign("value", $"Uri.EscapeDataString(\"{{{queryString}}}\")")
-                        .AddLine($"{variable} += \"{key}\" = value;");
+                    code.Assign("value", $"Uri.EscapeDataString($\"{queryString.Value}\")")
+                        .AddLine($"{variable} += \"{key}=\" + value;");
                 }
                 else if (queryString.Value is List<string> queryStringList)
                 {
                     ////query += string.Join("&", queryStringList.Select(q => $"{Uri.EscapeDataString(queryString.Key)}={Uri.EscapeDataString(q)}"));
                 }
 
+                code.BlankLine();
                 first = false;
             }
         }

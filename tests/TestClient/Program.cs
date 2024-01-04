@@ -23,8 +23,6 @@ public class Program
             HttpClient = new HttpClient()
         };
 
-        ////var result = await context.GetClient().GetWorkloadAsync("Test");
-        ////Console.WriteLine(result);
 
         ////var serviceResult = await context.GetClient().CreateWorkloadAsync(
         ////    new CreateWorkloadModel()
@@ -36,14 +34,18 @@ public class Program
         var tokenResult = await context.GetTokenClient().GetTokenAsync(apiKey);
 
 
-
         var json = JsonSerializer.Serialize<IServiceResult<string>>(
             tokenResult,
             new JsonContext().GetTypeInfo(typeof(IServiceResult<string>)) as JsonTypeInfo<IServiceResult<string>>);
 
         Console.WriteLine(json);
-
         Console.WriteLine("--------");
+
+        var result = await context.GetClient().GetWorkloadAsync(tokenResult.Result, "55c21b63-099c-4f23-8d06-a56afdfd4d34");
+        Console.WriteLine(result.Status);
+        Console.WriteLine(result.Result?.Id);
+        Console.WriteLine(result.Result?.Name);
+
 
         var @class = new FluentClassBuilder("MyApp.MyClass")
 //            .Namespace("MyApp")
