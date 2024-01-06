@@ -10,6 +10,8 @@ using Microsoft.CodeAnalysis;
 
 internal class MethodBuilderContext
 {
+    private readonly static HttpMethod Patch = new HttpMethod("Patch");
+
     /// <summary>
     /// A dictionary of query strings.
     /// </summary>
@@ -106,6 +108,16 @@ internal class MethodBuilderContext
     public IParameterSymbol ContentParameter { get; set; }
 
     /// <summary>
+    /// Gets or sets the methods return type symbol.
+    /// </summary>
+    public INamedTypeSymbol ReturnType { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating that the method returns a <see cref="Task"/> type.
+    /// </summary>
+    public bool ReturnsTask { get; set; }
+
+    /// <summary>
     /// Processes the method level attributes.
     /// </summary>
     /// <exception cref="Exception"></exception>
@@ -125,7 +137,7 @@ internal class MethodBuilderContext
                         nameof(PostAttribute) => HttpMethod.Post,
                         nameof(GetAttribute) => HttpMethod.Get,
                         nameof(PutAttribute) => HttpMethod.Put,
-                        nameof(PatchAttribute) => new HttpMethod("Patch"),
+                        nameof(PatchAttribute) => Patch,
                         nameof(DeleteAttribute) => HttpMethod.Delete,
                         _ => throw new Exception("Unknown method type")
                     };
@@ -261,7 +273,7 @@ internal class MethodBuilderContext
                         .Body(c => c.Assign("this.context", "context")));
 
                 // Generate the 'SendAsync' method
-                this.GenerateSendAsync(methodSubClassBuilder);
+                this.GenerateSend(methodSubClassBuilder);
 
                 // Generate 'CreateRequest' method.
                 this.GenerateCreateRequest(methodSubClassBuilder, contentParameterSymbol);
@@ -273,10 +285,10 @@ internal class MethodBuilderContext
                 this.GenerateGetRequestUri(methodSubClassBuilder);
 
                 // Generate 'ExecuteAsync()' method.
-                this.GenerateExecuteAsync(methodSubClassBuilder, contentParameterSymbol);
+                this.GenerateExecute(methodSubClassBuilder, contentParameterSymbol);
 
                 // Generate the 'ProcessResponseAsync()' method.
-                this.GenerateProcessResponseAsync(methodSubClassBuilder);
+                this.GenerateProcessResponse(methodSubClassBuilder);
             });
 
         var parametersStr = this.MethodMember.BuildParametersList();
@@ -290,7 +302,10 @@ internal class MethodBuilderContext
                 .Body(c => c
                     .Variable("var", "request", $"new {memberClassName}(this.context)")
                     .AddLine($"Console.WriteLine(request.GetRequestUri({parametersStr}));")
-                    .Return($"request.ExecuteAsync({parametersStr})")));
+                    .ReturnIf(
+                        this.ReturnsTask,
+                        $"request.ExecuteAsync({parametersStr})",
+                        $"request.Execute({parametersStr})")));
     }
 
     private void AddFormUrlProperty(TypedConstant key, string value)
@@ -363,7 +378,7 @@ internal class MethodBuilderContext
         }
     }
 
-    private FluentMethodBuilder GenerateSendAsync(
+    private FluentMethodBuilder GenerateSend(
         FluentClassBuilder builder)
     {
         var parametersStr = this.MethodMember.BuildParametersList();
@@ -421,7 +436,7 @@ internal class MethodBuilderContext
                 .AddHeaders("request", this.headers);
 
             AddAuthorization(code);
-            
+
             code
                 .Return("request");
         }
@@ -454,6 +469,33 @@ internal class MethodBuilderContext
                     .Variable("var", "json", $"this.context.Serialize({contentParameterSymbol.Name})")
                     .AddLine($"request.Content = new StringContent(json, System.Text.UTF8Encoding.UTF8, \"{this.ContentType}\");");
             }
+
+            AddAuthorization(code);
+            code.Return("request");
+        }
+        else if (this.RequestMethod == HttpMethod.Put)
+        {
+            code
+                .Variable("var", "request", "new HttpRequestMessage(HttpMethod.Put, requestUri)")
+                .AddHeaders("request", this.headers);
+
+            AddAuthorization(code);
+            code.Return("request");
+        }
+        else if (this.RequestMethod == Patch)
+        {
+            code
+                .Variable("var", "request", "new HttpRequestMessage(new HttpMethod(\"Patch\"), requestUri)")
+                .AddHeaders("request", this.headers);
+
+            AddAuthorization(code);
+            code.Return("request");
+        }
+        else if (this.RequestMethod == HttpMethod.Delete)
+        {
+            code
+                .Variable("var", "request", "new HttpRequestMessage(HttpMethod.Delete, requestUri)")
+                .AddHeaders("request", this.headers);
 
             AddAuthorization(code);
             code.Return("request");
@@ -524,74 +566,114 @@ internal class MethodBuilderContext
         return requestUriMethod;
     }
 
-    private FluentMethodBuilder GenerateExecuteAsync(
+    private FluentMethodBuilder GenerateExecute(
         FluentClassBuilder builder,
         IParameterSymbol contentParameterSymbol)
     {
         var parametersStr = this.MethodMember.BuildParametersList(true);
         var contentParameter = contentParameterSymbol != null ? $"{contentParameterSymbol.Name}, " : string.Empty;
 
-        var executeMethod = builder.Method("ExecuteAsync")
+        var executeMethod = builder
+            .MethodIf(
+                this.ReturnsTask,
+                "ExecuteAsync",
+                "Execute",
+                action: m => m.Async())
             .Public()
-            .Async()
             .Returns(this.MethodMember.ReturnType.ToString())
-            .Params(
-                pb =>
-                {
-                    var hasCancellationToken = false;
-                    foreach (var param in this.MethodMember.Parameters)
-                    {
-                        var typeName = param.Type.OriginalDefinition.ToString();
-                        pb.Param(param.Name, typeName);
-                        if (typeName == "System.Threading.CancellationToken")
-                        {
-                            hasCancellationToken = true;
-                        }
-                    }
+            .Params(p => this.AddParameters(p, true));
 
-                    if (hasCancellationToken == false)
-                    {
-                        pb.Param<CancellationToken>("cancellationToken", p => p.Default("default"));
-                    }
-                })
-            .Body(c => c
-                .Variable<HttpResponseMessage>("response")
-                .Variable("var", "retry", "this.CreateRetry()")
-                .If("retry != null", m => m
-                    .Assign("response", $"await retry.ExecuteAsync(() => {{ return this.SendAsync({parametersStr}); }}).ConfigureAwait(false);"))
-                .Else(m => m
-                    .Assign("response", $"await this.SendAsync({parametersStr}).ConfigureAwait(false)"))
-                .BlankLine()
-                .Return("await this.ProcessResponseAsync(response)"));
+        var code = new FluentCodeBuilder()
+            .Variable<HttpResponseMessage>("response")
+            .Variable("var", "retry", "this.CreateRetry()")
+            .If("retry != null", m => m
+                .AssignIf(
+                    this.ReturnsTask,
+                    "response",
+                    $"await retry.ExecuteAsync(() => {{ return this.SendAsync({parametersStr}); }}).ConfigureAwait(false)",
+                    $"retry.ExecuteAsync(() => {{ return this.SendAsync({parametersStr}); }}).Result"))
+            .Else(m => m
+                .AssignIf(
+                    this.ReturnsTask,
+                    "response",
+                    $"await this.SendAsync({parametersStr}).ConfigureAwait(false)",
+                    $"this.SendAsync({parametersStr}).Result"))
+            .BlankLine()
+            .ReturnIf(
+                this.ReturnsTask,
+                "await this.ProcessResponseAsync(response).ConfigureAwait(false)",
+                "this.ProcessResponse(response)");
 
+        executeMethod.Body(code);
         return executeMethod;
     }
 
-    private FluentMethodBuilder GenerateProcessResponseAsync(FluentClassBuilder builder)
+    private FluentMethodBuilder GenerateProcessResponse(FluentClassBuilder builder)
     {
-        var processResponseMethod = builder.Method("ProcessResponseAsync")
-            .Private()
-            .Async()
-            .Returns(this.MethodMember.ReturnType.ToString())
-            .Param<HttpResponseMessage>("response");
-
-        if (this.ResponseProcessorType == null)
+        FluentMethodBuilder processResponseMethod;
+        if (this.ReturnsTask == true)
         {
-            processResponseMethod.Body(c => c
-                .AddLine("response.EnsureSuccessStatusCode();")
-                .AddLine("await Task.Yield();")
-                .Return("null"));
+            processResponseMethod = builder
+                .Method("ProcessResponseAsync")
+                .Async();
         }
         else
         {
-            processResponseMethod
-                .Async()
-                .Body(c => c
-                    .Variable("var", "responseProcessor", $"new {this.ResponseProcessorType}()")
-                    .BlankLine()
-                    .Variable("var", "result", "await responseProcessor.ProcessResponseAsync(response)")
-                    .Return("result"));
+            processResponseMethod = builder
+                .Method("ProcessResponse");
         }
+
+        processResponseMethod
+            .Private()
+            .Returns(this.MethodMember.ReturnType.ToString())
+            .Param<HttpResponseMessage>("response");
+
+        var returnTypeName = this.ReturnType.GetTypeOrInnerTypeSymbol().ToString();
+        var code = new FluentCodeBuilder();
+
+        if (this.ResponseProcessorType == null)
+        {
+            code.Variable(returnTypeName, "result", "null")
+                .AddLine("response.EnsureSuccessStatusCode();")
+                .AddLineIf(this.ReturnsTask, "await Task.Yield();");
+
+            if (returnTypeName == nameof(HttpResponseMessage))
+            {
+                code.Assign("result", "response");
+            }
+            else
+            {
+                code.Variable("string", "content", "null");
+                if (this.ReturnsTask)
+                {
+                    code.Assign("content", "await response.Content.ReadAsStringAsync()");
+                }
+                else
+                {
+                    code.Assign("content", "response.Content.ReadAsStringAsync().Result");
+                }
+
+                if (returnTypeName == nameof(String))
+                {
+                    code.Assign("result", "response");
+                }
+                else
+                {
+
+                }
+            }
+
+            code.Return("result");
+        }
+        else
+        {
+            code.Variable("var", "responseProcessor", $"new {this.ResponseProcessorType}()")
+                .BlankLine()
+                .Variable("var", "result", "await responseProcessor.ProcessResponseAsync(response)")
+                .Return("result");
+        }
+
+        processResponseMethod.Body(code);
 
         return processResponseMethod;
     }

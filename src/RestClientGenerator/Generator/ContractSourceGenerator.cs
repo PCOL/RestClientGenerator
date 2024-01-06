@@ -6,9 +6,6 @@ using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
 using Microsoft.CodeAnalysis.CSharp;
-using System.Collections.Immutable;
-using System.Net.Http;
-using System.Threading;
 
 /// <summary>
 /// Contract source generator.
@@ -94,7 +91,9 @@ public class ContractSourceGenerator
                         Member = member,
                         MethodMember = methodMember,
                         Route = builderContext.Route,
-                        ContentType = builderContext.ContentType ?? "application/json"
+                        ContentType = builderContext.ContentType ?? "application/json",
+                        ReturnType = (INamedTypeSymbol)methodMember.ReturnType,
+                        ReturnsTask = methodMember.ReturnType.BaseType.Name == "Task"
                     };
 
                     methodBuilderContext.ProcessParameters();

@@ -2,9 +2,34 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using Microsoft.CodeAnalysis;
 
 internal static class FluentExtensionMethods
 {
+    public static FluentMethodBuilder MethodIf(
+        this FluentClassBuilder classBuilder,
+        bool condition,
+        string name,
+        string elseName,
+        Action<FluentMethodBuilder> action = null,
+        Action<FluentMethodBuilder> elseAction = null)
+    {
+        FluentMethodBuilder method;
+        if (condition)
+        {
+            method = classBuilder.Method(name);
+            action?.Invoke(method);
+        }
+        else
+        {
+            method = classBuilder.Method(elseName);
+            elseAction?.Invoke(method);
+        }
+
+        return method;  
+    }
+
     public static FluentCodeBuilder AddHeaders(
         this FluentCodeBuilder code,
         string requestVariable,
@@ -65,5 +90,67 @@ internal static class FluentExtensionMethods
         }
 
         return code;
+    }
+
+    public static FluentCodeBuilder AddLineIf(
+        this FluentCodeBuilder code,
+        bool condition,
+        string line,
+        string elseLine = null,
+        int indent = 0)
+    {
+        if (condition)
+        {
+            code.AddLine(line, indent);
+        }
+        else if (elseLine != null)
+        {
+            code.AddLine(elseLine, indent);
+        }
+
+        return code;
+    }
+
+    public static FluentCodeBuilder ReturnIf(
+        this FluentCodeBuilder code,
+        bool condition,
+        string value,
+        string elseValue = null,
+        int indent = 0)
+    {
+        return code
+            .AddLineIf(
+                condition,
+                $"return {value};",
+                $"return {elseValue};",
+                indent);
+    }
+
+    public static FluentCodeBuilder AssignIf(
+        this FluentCodeBuilder code,
+        bool condition,
+        string name,
+        string value,
+        string elseValue = null,
+        int indent = 0)
+    {
+        return code
+            .AddLineIf(
+                condition,
+                $"{name} = {value};",
+                $"{name} = {elseValue};",
+                indent);
+    }
+
+    public static INamedTypeSymbol GetTypeOrInnerTypeSymbol(
+        this INamedTypeSymbol type)
+    {
+        if (type.Arity == 0)
+        {
+            return  type;
+        }
+
+        return type.TypeArguments.First() as INamedTypeSymbol;
+
     }
 }
