@@ -6,6 +6,7 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Net.Http;
 using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 
 internal class MethodBuilderContext
@@ -405,8 +406,33 @@ internal class MethodBuilderContext
         {
             if (this.HasAuthorization)
             {
-                code.AddLine($"request.Headers.Add(\"Authorization\", $\"{this.AuthorizationHeaderValue}\");");
-                code.AddLine($"Console.WriteLine($\"{this.AuthorizationHeaderValue}\");");
+                if (this.AuthorizationHeaderValue != null)
+                {
+                    code.Assign("auth", $"$\"{this.AuthorizationHeaderValue}\"")
+                        .AddLine($"request.Headers.Add(\"Authorization\", auth);");
+                }
+                else if (this.AuthorizationFactoryType != null)
+                {
+
+                }
+                else
+                {
+                    var authMethod = builder
+                        .Method("GetAuthorizationAsync")
+                        .Async()
+                        .Public()
+                        .Returns<Task<string>>()
+                        .Body(c => c
+                            .Variable<string>("scheme", "null")
+                            .Variable<string>("token", "null")
+                            .Variable("RestClientOptions", "options", "this.context.options")
+                            .BlankLine());
+
+                    code.Assign("auth", "await GetAuthorizationAsync();")
+                        .AddLine("request.Headers.Add(\"Authorization\", auth);");
+                }
+                    
+                code.AddLine("Console.WriteLine($\"{auth}\");");
             }
         }
 
@@ -414,17 +440,12 @@ internal class MethodBuilderContext
 
         var createRequestMethod = builder.Method("CreateRequest")
             .Private()
-            .Params(p =>
-            {
-                foreach (var param in this.MethodMember.Parameters)
-                {
-                    p.Param(param.Name, param.Type.OriginalDefinition.ToString());
-                }
-            })
+            .Params(p => this.AddParameters(p))
             .Returns<HttpRequestMessage>()
             .Body(c => c.AddLine("throw new NotSupportedException();"));
 
         var code = new FluentCodeBuilder()
+            .Variable("string", "auth", "null")
             .Variable("var", "requestUri", $"this.GetRequestUri({parametersStr})");
 
         if (this.RequestMethod == HttpMethod.Get)
