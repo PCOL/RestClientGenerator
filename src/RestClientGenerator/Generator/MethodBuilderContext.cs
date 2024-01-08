@@ -390,7 +390,13 @@ internal class MethodBuilderContext
             .Params(p => AddParameters(p, true))
             .Returns("System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage>")
             .Body(c => c
-                .UsingBlock($"var request = this.CreateRequest({parametersStr})", b => b
+                .Variable("HttpRequestMessage", "request", "null")
+                .AssignIf(
+                    this.ReturnsTask,
+                    "request",
+                    $"await this.CreateRequestAsync({parametersStr})",
+                    $"this.CreateRequest({parametersStr})")
+                .UsingBlock("request", b => b
                     .Variable("var", "httpClient", "this.context.GetHttpClient()")
                     .Return("await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false)")));
 
@@ -402,6 +408,7 @@ internal class MethodBuilderContext
         FluentClassBuilder builder,
         IParameterSymbol contentParameterSymbol)
     {
+        bool addedAuth = false;
         void AddAuthorization(FluentCodeBuilder code)
         {
             if (this.HasAuthorization)
@@ -411,22 +418,43 @@ internal class MethodBuilderContext
                     code.Assign("auth", $"$\"{this.AuthorizationHeaderValue}\"")
                         .AddLine($"request.Headers.Add(\"Authorization\", auth);");
                 }
-                else if (this.AuthorizationFactoryType != null)
-                {
-
-                }
                 else
                 {
-                    var authMethod = builder
-                        .Method("GetAuthorizationAsync")
-                        .Async()
-                        .Public()
-                        .Returns<Task<string>>()
-                        .Body(c => c
+                    addedAuth = true;
+                    var authCode = new FluentCodeBuilder()
                             .Variable<string>("scheme", "null")
                             .Variable<string>("token", "null")
-                            .Variable("RestClientOptions", "options", "this.context.options")
-                            .BlankLine());
+                            .Variable("var", "options", "this.context.Options")
+                            .BlankLine();
+
+                    if (this.AuthorizationFactoryType != null)
+                    {
+                        authCode
+                            .Variable("var", "authType", $"new {this.AuthorizationFactoryType}()")
+                            .Assign("scheme", $"authType.{nameof(IAuthorizationHeaderFactory.GetAuthorizationHeaderScheme)}()")
+                            .AssignIf(
+                                this.ReturnsTask,
+                                "token",
+                                $"await authType.{nameof(IAuthorizationHeaderFactory.GetAuthorizationHeaderValueAsync)}()",
+                                $"authType.{nameof(IAuthorizationHeaderFactory.GetAuthorizationHeaderValue)}()");
+                    }
+                    else
+                    {
+
+                    }
+
+                    authCode.Return("$\"{scheme} {token}\"");
+
+                    var authMethod = builder
+                        .MethodIf(
+                            this.ReturnsTask,
+                            "GetAuthorizationAsync",
+                            "GetAuthorization",
+                            m => m.Async()
+                                .Returns("Task<string>"),
+                            m => m.Returns("string"))
+                        .Public()
+                        .Body(authCode);
 
                     code.Assign("auth", "await GetAuthorizationAsync();")
                         .AddLine("request.Headers.Add(\"Authorization\", auth);");
@@ -437,12 +465,6 @@ internal class MethodBuilderContext
         }
 
         var parametersStr = this.MethodMember.BuildParametersList();
-
-        var createRequestMethod = builder.Method("CreateRequest")
-            .Private()
-            .Params(p => this.AddParameters(p))
-            .Returns<HttpRequestMessage>()
-            .Body(c => c.AddLine("throw new NotSupportedException();"));
 
         var code = new FluentCodeBuilder()
             .Variable("string", "auth", "null")
@@ -455,11 +477,6 @@ internal class MethodBuilderContext
             code
                 .Variable("var", "request", $"new HttpRequestMessage(HttpMethod.Get, requestUri)")
                 .AddHeaders("request", this.headers);
-
-            AddAuthorization(code);
-
-            code
-                .Return("request");
         }
         else if (this.RequestMethod == HttpMethod.Post)
         {
@@ -490,39 +507,59 @@ internal class MethodBuilderContext
                     .Variable("var", "json", $"this.context.Serialize({contentParameterSymbol.Name})")
                     .AddLine($"request.Content = new StringContent(json, System.Text.UTF8Encoding.UTF8, \"{this.ContentType}\");");
             }
-
-            AddAuthorization(code);
-            code.Return("request");
         }
         else if (this.RequestMethod == HttpMethod.Put)
         {
             code
                 .Variable("var", "request", "new HttpRequestMessage(HttpMethod.Put, requestUri)")
                 .AddHeaders("request", this.headers);
-
-            AddAuthorization(code);
-            code.Return("request");
         }
         else if (this.RequestMethod == Patch)
         {
             code
                 .Variable("var", "request", "new HttpRequestMessage(new HttpMethod(\"Patch\"), requestUri)")
                 .AddHeaders("request", this.headers);
-
-            AddAuthorization(code);
-            code.Return("request");
         }
         else if (this.RequestMethod == HttpMethod.Delete)
         {
             code
                 .Variable("var", "request", "new HttpRequestMessage(HttpMethod.Delete, requestUri)")
                 .AddHeaders("request", this.headers);
+        }
+        else
+        {
+            throw new NotSupportedException($"Request Method '{this.RequestMethod}' not supported");
+        }
 
-            AddAuthorization(code);
+        AddAuthorization(code);
+
+        var createRequestMethod = builder
+            .MethodIf(
+                this.ReturnsTask,
+                "CreateRequestAsync",
+                "CreateRequest",
+                m => m.Returns("Task<HttpRequestMessage>"),
+                m => m.Returns<HttpRequestMessage>())
+            .Private()
+            .Params(p => this.AddParameters(p))
+            .Body(code);
+
+        if (this.ReturnsTask &&
+            addedAuth == false)
+        {
+            code.Return("Task.FromResult(request)");
+        }
+        else
+        {
+            if (this.ReturnsTask)
+            {
+                createRequestMethod.Async();
+            }
+
             code.Return("request");
         }
 
-        return createRequestMethod.Body(code);
+        return createRequestMethod;
     }
 
     private FluentMethodBuilder GenerateCreateRetry(FluentClassBuilder builder)
@@ -631,20 +668,12 @@ internal class MethodBuilderContext
 
     private FluentMethodBuilder GenerateProcessResponse(FluentClassBuilder builder)
     {
-        FluentMethodBuilder processResponseMethod;
-        if (this.ReturnsTask == true)
-        {
-            processResponseMethod = builder
-                .Method("ProcessResponseAsync")
-                .Async();
-        }
-        else
-        {
-            processResponseMethod = builder
-                .Method("ProcessResponse");
-        }
-
-        processResponseMethod
+        var processResponseMethod = builder
+            .MethodIf(
+                this.ReturnsTask,
+                "ProcessResponseAsync",
+                "ProcessResponse",
+                m => m.Async())
             .Private()
             .Returns(this.MethodMember.ReturnType.ToString())
             .Param<HttpResponseMessage>("response");
@@ -658,7 +687,7 @@ internal class MethodBuilderContext
                 .AddLine("response.EnsureSuccessStatusCode();")
                 .AddLineIf(this.ReturnsTask, "await Task.Yield();");
 
-            if (returnTypeName == nameof(HttpResponseMessage))
+            if (returnTypeName == $"System.Net.Http.{nameof(HttpResponseMessage)}")
             {
                 code.Assign("result", "response");
             }
