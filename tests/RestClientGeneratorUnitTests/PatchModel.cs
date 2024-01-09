@@ -1,9 +1,9 @@
 ﻿namespace RestClientGeneratorUnitTests;
 
 /// <summary>
-/// A model for a put request.
+/// A model for a patch request.
 /// </summary>
-public class PutModel
+public class PatchModel
 {
     /// <summary>
     /// Gets or sets the name.

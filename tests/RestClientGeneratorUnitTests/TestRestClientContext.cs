@@ -1,9 +1,9 @@
 ﻿namespace RestClientGeneratorUnitTests;
 
-using System;
 using RestClient;
 
 [RestClient(typeof(ISimpleTestClient))]
+[RestClient(typeof(IGetClient))]
 public partial class TestRestClientContext
     : RestClientContext
 {
@@ -14,7 +14,7 @@ public partial class TestRestClientContext
             return default(T);
         }
 
-        throw new NotImplementedException();
+        return new JsonContext().Deserialize<T>(content);
     }
 
     public override string Serialize<T>(T obj)
@@ -24,6 +24,6 @@ public partial class TestRestClientContext
             return null;
         }
 
-        throw new NotImplementedException();
+        return new JsonContext().Serialize<T>(obj);
     }
 }

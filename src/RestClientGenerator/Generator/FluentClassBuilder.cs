@@ -8,7 +8,7 @@ using System.Text;
 /// <summary>
 /// Represents a fluent class builder.
 /// </summary>
-public class FluentClassBuilder
+internal class FluentClassBuilder
 {
     /// <summary>
     /// The class name.

@@ -3,7 +3,7 @@
 /// <summary>
 /// Represents a fluent attribute builder.
 /// </summary>
-public class FluentAttributeBuilder
+internal class FluentAttributeBuilder
 {
     /// <summary>
     /// The attribute name.

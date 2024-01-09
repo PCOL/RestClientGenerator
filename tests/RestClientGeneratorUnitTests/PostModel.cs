@@ -1,9 +1,6 @@
 ﻿namespace RestClientGeneratorUnitTests;
 
-/// <summary>
-/// A model for a put request.
-/// </summary>
-public class PutModel
+public class PostModel
 {
     /// <summary>
     /// Gets or sets the name.

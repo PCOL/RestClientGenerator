@@ -3,7 +3,10 @@
 using System;
 using System.Collections.Generic;
 
-public class FluentFieldBuilder
+/// <summary>
+/// A fluent builder for a field.
+/// </summary>
+internal class FluentFieldBuilder
 {
     /// <summary>
     /// The fields accessability.

@@ -1,13 +1,15 @@
 ﻿namespace RestClient.Generator;
 
 using System;
-using System.Collections.Generic;
 
 /// <summary>
 /// A fluent parameter builder.
 /// </summary>
-public class FluentParametersBuilder
+internal class FluentParametersBuilder
 {
+    /// <summary>
+    /// The method builder.
+    /// </summary>
     private readonly FluentMethodBuilder methodBuilder;
 
     /// <summary>
@@ -59,5 +61,4 @@ public class FluentParametersBuilder
         action?.Invoke(paramBuilder);
         return this;
     }
-
 }

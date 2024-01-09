@@ -5,6 +5,9 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 
+/// <summary>
+/// Extension methods for the fluent builder classes.
+/// </summary>
 internal static class FluentExtensionMethods
 {
     public static FluentMethodBuilder MethodIf(

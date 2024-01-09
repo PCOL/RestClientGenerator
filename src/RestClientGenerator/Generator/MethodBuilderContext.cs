@@ -9,9 +9,20 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 
+/// <summary>
+/// A method builder context.
+/// </summary>
 internal class MethodBuilderContext
 {
-    private readonly static HttpMethod Patch = new HttpMethod("Patch");
+    /// <summary>
+    /// A dictionary of class counts.
+    /// </summary>
+    private static Dictionary<string, int> classCounts = new Dictionary<string, int>();
+
+    /// <summary>
+    /// A patch http method.
+    /// </summary>
+    private readonly static HttpMethod Patch = new HttpMethod("PATCH");
 
     /// <summary>
     /// A dictionary of query strings.
@@ -61,7 +72,7 @@ internal class MethodBuilderContext
     /// <summary>
     /// Gets or sets the request uri.
     /// </summary>
-    public string RequestUri { get; set; }
+    public string RequestUri { get; private set; }
 
     /// <summary>
     /// Gets or sets the request method.
@@ -71,42 +82,47 @@ internal class MethodBuilderContext
     /// <summary>
     /// Gets or sets a value indicating whether or not the method should use retry.
     /// </summary>
-    public bool HasRetry { get; set; }
+    public bool HasRetry { get; private set; }
 
     /// <summary>
     /// Gets or sets the a value indicating whether or not the retry wait time should double on each retry.
     /// </summary>
-    public bool? DoubleOnRetry { get; set; }
+    public bool? DoubleOnRetry { get; private set; }
 
     /// <summary>
     /// Gets or sets the retry limit.
     /// </summary>
-    public int? RetryLimit { get; set; }
+    public int? RetryLimit { get; private set; }
 
     /// <summary>
     /// Gets or sets the response processor type for this request.
     /// </summary>
-    public string ResponseProcessorType { get; set; }
+    public string ResponseProcessorType { get; private set; }
 
     /// <summary>
     /// Gets or sets a value indicating whether or not the request should add authorization.
     /// </summary>
-    public bool HasAuthorization { get; set; }
+    public bool HasAuthorization { get; private set; }
 
     /// <summary>
     /// Gets or sets the authorization header value.
     /// </summary>
-    public string AuthorizationHeaderValue { get; set; }
+    public string AuthorizationHeaderValue { get; private set; }
 
     /// <summary>
     /// Gets or sets the the authorization factory type.
     /// </summary>
-    public string AuthorizationFactoryType { get; set; }
+    public string AuthorizationFactoryType { get; private set; }
+
+    /// <summary>
+    /// Gets or sets the content parameter name.
+    /// </summary>
+    public string ContentParameterName { get; private set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the content parameter.
     /// </summary>
-    public IParameterSymbol ContentParameter { get; set; }
+    public IParameterSymbol ContentParameterSymbol { get; private set; }
 
     /// <summary>
     /// Gets or sets the methods return type symbol.
@@ -192,6 +208,9 @@ internal class MethodBuilderContext
         }
     }
 
+    /// <summary>
+    /// Processes the methods parameters.
+    /// </summary>
     public void ProcessParameters()
     {
         foreach (var parameterSymbol in this.MethodMember.Parameters)
@@ -201,7 +220,9 @@ internal class MethodBuilderContext
             {
                 if (attr.AttributeClass.Name == nameof(SendAsContentAttribute))
                 {
-                    this.ContentParameter = parameterSymbol;
+                    this.ContentParameterSymbol = parameterSymbol;
+                    this.ContentParameterName = parameterSymbol.Name;
+
                     attr.NamedArguments.GetNamedArguments(
                         new (string, string, Action<object>)[]
                         {
@@ -255,15 +276,11 @@ internal class MethodBuilderContext
     /// </summary>
     public void Generate()
     {
-        var memberClassName = $"{this.MethodMember.Name}_class";
+        var memberClassName = $"{GetNextClassName(this.MethodMember.Name)}_class";
         this.ClassBuilder.SubClass(
             memberClassName,
             methodSubClassBuilder =>
             {
-                var contentParameterSymbol = this.MethodMember.GetParameterWithAttribute(
-                    nameof(SendAsContentAttribute),
-                    out var contentAttribute);
-
                 // Add 'context' field to class
                 methodSubClassBuilder
                     .Private()
@@ -277,7 +294,7 @@ internal class MethodBuilderContext
                 this.GenerateSend(methodSubClassBuilder);
 
                 // Generate 'CreateRequest' method.
-                this.GenerateCreateRequest(methodSubClassBuilder, contentParameterSymbol);
+                this.GenerateCreateRequest(methodSubClassBuilder);
 
                 // Generate 'CreateRetry' method.
                 this.GenerateCreateRetry(methodSubClassBuilder);
@@ -286,7 +303,7 @@ internal class MethodBuilderContext
                 this.GenerateGetRequestUri(methodSubClassBuilder);
 
                 // Generate 'ExecuteAsync()' method.
-                this.GenerateExecute(methodSubClassBuilder, contentParameterSymbol);
+                this.GenerateExecute(methodSubClassBuilder);
 
                 // Generate the 'ProcessResponseAsync()' method.
                 this.GenerateProcessResponse(methodSubClassBuilder);
@@ -307,6 +324,23 @@ internal class MethodBuilderContext
                         this.ReturnsTask,
                         $"request.ExecuteAsync({parametersStr})",
                         $"request.Execute({parametersStr})")));
+    }
+
+    /// <summary>
+    /// Gets the next class name.
+    /// </summary>
+    /// <param name="name">The base class name.</param>
+    /// <returns>The class name.</returns>
+    private string GetNextClassName(string name)
+    {
+        if (classCounts.TryGetValue(name, out var count) == false)
+        {
+            count = 0;
+        }
+
+        classCounts[name] = ++count;
+
+        return $"{name}_{count}";
     }
 
     private void AddFormUrlProperty(TypedConstant key, string value)
@@ -379,6 +413,11 @@ internal class MethodBuilderContext
         }
     }
 
+    /// <summary>
+    /// Generates the 'SendAsync' method.
+    /// </summary>
+    /// <param name="builder">A class builder.</param>
+    /// <returns>The method builder.</returns>
     private FluentMethodBuilder GenerateSend(
         FluentClassBuilder builder)
     {
@@ -404,9 +443,14 @@ internal class MethodBuilderContext
         return sendMethod;
     }
 
+    /// <summary>
+    /// Generates the 'CreateRequest' method.
+    /// </summary>
+    /// <param name="builder">A class builder.</param>
+    /// <returns>A method builder.</returns>
+    /// <exception cref="NotSupportedException"></exception>
     private FluentMethodBuilder GenerateCreateRequest(
-        FluentClassBuilder builder,
-        IParameterSymbol contentParameterSymbol)
+        FluentClassBuilder builder)
     {
         bool addedAuth = false;
         void AddAuthorization(FluentCodeBuilder code)
@@ -464,6 +508,33 @@ internal class MethodBuilderContext
             }
         }
 
+        void AddContent(FluentCodeBuilder code)
+        {
+            if (this.formUrlProperties != null)
+            {
+                code
+                    .AddLine("var list = new List<KeyValuePair<string, string>>()")
+                    .AddLine("{");
+
+                foreach (var kvp in this.formUrlProperties)
+                {
+                    code
+                        .AddLine($"    new KeyValuePair<string, string>(\"{kvp.Key}\", $\"{kvp.Value}\"),");
+                }
+
+                code
+                    .AddLine("};")
+                    .BlankLine()
+                    .AddLine($"request.Content = new FormUrlEncodedContent(list);");
+            }
+            else if (this.ContentParameterSymbol != null)
+            {
+                code
+                    .Variable("var", "json", $"this.context.Serialize({this.ContentParameterName})")
+                    .AddLine($"request.Content = new StringContent(json, System.Text.UTF8Encoding.UTF8, \"{this.ContentType}\");");
+            }
+        }
+
         var parametersStr = this.MethodMember.BuildParametersList();
 
         var code = new FluentCodeBuilder()
@@ -484,41 +555,23 @@ internal class MethodBuilderContext
                 .Variable("var", "request", "new HttpRequestMessage(HttpMethod.Post, requestUri)")
                 .AddHeaders("request", this.headers);
 
-            if (this.formUrlProperties != null)
-            {
-                code
-                    .AddLine("var list = new List<KeyValuePair<string, string>>()")
-                    .AddLine("{");
-
-                foreach (var kvp in this.formUrlProperties)
-                {
-                    code
-                        .AddLine($"    new KeyValuePair<string, string>(\"{kvp.Key}\", $\"{kvp.Value}\"),");
-                }
-
-                code
-                    .AddLine("};")
-                    .BlankLine()
-                    .AddLine($"request.Content = new FormUrlEncodedContent(list);");
-            }
-            else if (contentParameterSymbol != null)
-            {
-                code
-                    .Variable("var", "json", $"this.context.Serialize({contentParameterSymbol.Name})")
-                    .AddLine($"request.Content = new StringContent(json, System.Text.UTF8Encoding.UTF8, \"{this.ContentType}\");");
-            }
+            AddContent(code);
         }
         else if (this.RequestMethod == HttpMethod.Put)
         {
             code
                 .Variable("var", "request", "new HttpRequestMessage(HttpMethod.Put, requestUri)")
                 .AddHeaders("request", this.headers);
+
+            AddContent(code);
         }
         else if (this.RequestMethod == Patch)
         {
             code
-                .Variable("var", "request", "new HttpRequestMessage(new HttpMethod(\"Patch\"), requestUri)")
+                .Variable("var", "request", "new HttpRequestMessage(new HttpMethod(\"PATCH\"), requestUri)")
                 .AddHeaders("request", this.headers);
+
+            AddContent(code);
         }
         else if (this.RequestMethod == HttpMethod.Delete)
         {
@@ -562,6 +615,11 @@ internal class MethodBuilderContext
         return createRequestMethod;
     }
 
+    /// <summary>
+    /// Generates the 'CreateRetry' method.
+    /// </summary>
+    /// <param name="builder">A class builder.</param>
+    /// <returns>A method builder.</returns>
     private FluentMethodBuilder GenerateCreateRetry(FluentClassBuilder builder)
     {
         var retryMethod = builder.Method("CreateRetry")
@@ -596,6 +654,11 @@ internal class MethodBuilderContext
                 .Return("null"));
     }
 
+    /// <summary>
+    /// Generates the 'GetRequestUri' method.
+    /// </summary>
+    /// <param name="builder">A class builder.</param>
+    /// <returns>A method builder.</returns>
     private FluentMethodBuilder GenerateGetRequestUri(FluentClassBuilder builder)
     {
         var requestUriMethod = builder.Method("GetRequestUri")
@@ -624,12 +687,15 @@ internal class MethodBuilderContext
         return requestUriMethod;
     }
 
+    /// <summary>
+    /// Generates the 'Execute' method.
+    /// </summary>
+    /// <param name="builder">A class builder.</param>
+    /// <returns>A method builder.</returns>
     private FluentMethodBuilder GenerateExecute(
-        FluentClassBuilder builder,
-        IParameterSymbol contentParameterSymbol)
+        FluentClassBuilder builder)
     {
         var parametersStr = this.MethodMember.BuildParametersList(true);
-        var contentParameter = contentParameterSymbol != null ? $"{contentParameterSymbol.Name}, " : string.Empty;
 
         var executeMethod = builder
             .MethodIf(
@@ -666,6 +732,11 @@ internal class MethodBuilderContext
         return executeMethod;
     }
 
+    /// <summary>
+    /// Generates the 'ProcessResponse' method.
+    /// </summary>
+    /// <param name="builder">A class builder.</param>
+    /// <returns>A method builder for the new method.</returns>
     private FluentMethodBuilder GenerateProcessResponse(FluentClassBuilder builder)
     {
         var processResponseMethod = builder
@@ -728,17 +799,28 @@ internal class MethodBuilderContext
         return processResponseMethod;
     }
 
+    /// <summary>
+    /// Adds the methods parameters to a <see cref="FluentParametersBuilder"/> instance.
+    /// </summary>
+    /// <param name="p">A <see cref="FluentParametersBuilder"/> instance.</param>
+    /// <param name="addCancellationToken">A value indicating whether or not the add a cancellation token.</param>
     private void AddParameters(
         FluentParametersBuilder p,
-        bool addCancellatiomToken = false)
+        bool addCancellationToken = false)
     {
-        this.AddParameters(p, this.MethodMember.Parameters, addCancellatiomToken);
+        this.AddParameters(p, this.MethodMember.Parameters, addCancellationToken);
     }
 
+    /// <summary>
+    /// Adds a list of parameters to a <see cref="FluentParametersBuilder"/> instance.
+    /// </summary>
+    /// <param name="p">A <see cref="FluentParametersBuilder"/> instance.</param>
+    /// <param name="parameters">A list of parameters.</param>
+    /// <param name="addCancellationToken">A value indicating whether or not the add a cancellation token.</param>
     private void AddParameters(
         FluentParametersBuilder p,
         ImmutableArray<IParameterSymbol> parameters,
-        bool addCancellatiomToken = false)
+        bool addCancellationToken = false)
     {
         var hasCancellationToken = false;
         if (parameters != null)
@@ -755,7 +837,7 @@ internal class MethodBuilderContext
         }
 
         if (hasCancellationToken == false &&
-            addCancellatiomToken == true)
+            addCancellationToken == true)
         {
             p.Param<CancellationToken>("cancellationToken", p => p.Default("default"));
         }

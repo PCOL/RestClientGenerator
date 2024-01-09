@@ -7,7 +7,7 @@ using System.Text;
 /// <summary>
 /// A fluent method builder.
 /// </summary>
-public class FluentMethodBuilder
+internal class FluentMethodBuilder
 {
     /// <summary>
     /// The method name.

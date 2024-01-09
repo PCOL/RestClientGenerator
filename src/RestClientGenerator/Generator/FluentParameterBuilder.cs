@@ -6,7 +6,7 @@ using System.Collections.Generic;
 /// <summary>
 /// A fluent parameter builder.
 /// </summary>
-public class FluentParameterBuilder
+internal class FluentParameterBuilder
 {
     /// <summary>
     /// The type name.

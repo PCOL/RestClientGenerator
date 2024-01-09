@@ -4,7 +4,10 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-public class FluentPropertyBuilder
+/// <summary>
+/// A fluent property builder.
+/// </summary>
+internal class FluentPropertyBuilder
 {
     /// <summary>
     /// The property name.
@@ -22,27 +25,27 @@ public class FluentPropertyBuilder
     private string returnType = "void";
 
     /// <summary>
-    /// 
+    /// A value indicating whether the property is auto-implemented.
     /// </summary>
     private bool isAuto;
 
     /// <summary>
-    /// 
+    /// A value indicating whether the property has a getter.
     /// </summary>
     private bool hasGetter;
 
     /// <summary>
-    /// 
+    /// The getters accessability.
     /// </summary>
     private Accessability? getterAccessability;
 
     /// <summary>
-    /// 
+    /// A value indicating whether the property has a setter.
     /// </summary>
     private bool hasSetter;
 
     /// <summary>
-    /// 
+    /// The setters accessability.
     /// </summary>
     private Accessability? setterAccessability;
 
@@ -188,14 +191,19 @@ public class FluentPropertyBuilder
     }
 
     /// <summary>
-    /// Builds the method definition.
+    /// Builds the property definition.
     /// </summary>
-    /// <returns>The method definition.</returns>
+    /// <returns>The property definition.</returns>
     public string Build()
     {
         return Build(0);
     }
 
+    /// <summary>
+    /// Builds the property definition.
+    /// </summary>
+    /// <param name="indent">The number of spaces to indent.</param>
+    /// <returns>The property definition.</returns>
     internal string Build(int indent)
     {
         var indentStr = new string(' ', indent);

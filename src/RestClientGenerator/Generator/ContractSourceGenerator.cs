@@ -33,6 +33,11 @@ public class ContractSourceGenerator
         this.GenerateRestClientContexts(context, syntaxReceiver);
     }
 
+    /// <summary>
+    /// Generates the clients.
+    /// </summary>
+    /// <param name="context">The generator execution context.</param>
+    /// <param name="syntaxReceiver">The syntax receiver.</param>
     private void GenerateClients(
         GeneratorExecutionContext context,
         AttributeSyntaxReceiver<GenerateContractAttribute, HttpClientContractAttribute, RestClientAttribute> syntaxReceiver)
@@ -114,6 +119,11 @@ public class ContractSourceGenerator
         }
     }
 
+    /// <summary>
+    /// Generate the REST client contexts.
+    /// </summary>
+    /// <param name="context">The generator execution context.</param>
+    /// <param name="syntaxReceiver">The syntax receiver.</param>
     private void GenerateRestClientContexts(
         GeneratorExecutionContext context,
         AttributeSyntaxReceiver<GenerateContractAttribute, HttpClientContractAttribute, RestClientAttribute> syntaxReceiver)
