@@ -220,6 +220,19 @@ internal static class UtilityExtensionMethods
         return false;
     }
 
+    public static bool HasAttribute(
+        this INamedTypeSymbol symbol,
+        string attributeName)
+    {
+        return symbol.GetAttributes().Any(a => a.AttributeClass.Name == attributeName);
+    }
+
+    /// <summary>
+    /// Gets attribute named arguments from a symbol.
+    /// </summary>
+    /// <param name="symbol">A symbol.</param>
+    /// <param name="attributeName">The attribute name.</param>
+    /// <param name="propertySetters">A list of property setters.</param>
     public static void GetAttributeNamedArguments(
         this INamedTypeSymbol symbol,
         string attributeName,
@@ -228,6 +241,12 @@ internal static class UtilityExtensionMethods
         GetAttributeNamedArguments(symbol.GetAttributes(), attributeName, propertySetters);
     }
 
+    /// <summary>
+    /// Gets attribute named arguments from a list of attributes.
+    /// </summary>
+    /// <param name="attributes">A list of attributes.</param>
+    /// <param name="attributeName">The attribute name.</param>
+    /// <param name="propertySetters">A list of property setters.</param>
     public static void GetAttributeNamedArguments(
         this ImmutableArray<AttributeData> attributes,
         string attributeName,
@@ -243,6 +262,11 @@ internal static class UtilityExtensionMethods
         }
     }
 
+    /// <summary>
+    /// Gets named arguments from a list of named arguments.
+    /// </summary>
+    /// <param name="args">A list of named arguments.</param>
+    /// <param name="propertySetters">A list of property setters.</param>
     public static void GetNamedArguments(
         this ImmutableArray<KeyValuePair<string, TypedConstant>> args,
         IEnumerable<(string, string, Action<object>)> propertySetters)
@@ -259,6 +283,13 @@ internal static class UtilityExtensionMethods
         }
     }
 
+    /// <summary>
+    /// Gets an argument from a list of named arguments.
+    /// </summary>
+    /// <typeparam name="T">The argument value type.</typeparam>
+    /// <param name="args">A list of named arguments.</param>
+    /// <param name="name">The name of the argument.</param>
+    /// <returns>The argument value.</returns>
     public static T GetNamedArgument<T>(
         this ImmutableArray<KeyValuePair<string, TypedConstant>> args,
         string name)
@@ -274,6 +305,15 @@ internal static class UtilityExtensionMethods
         return default;
     }
 
+    /// <summary>
+    /// Gets an argument value from a matching argument key/value pair.
+    /// </summary>
+    /// <typeparam name="T">The value type.</typeparam>
+    /// <param name="argument">The argument key/value pair.</param>
+    /// <param name="argName">The argument name.</param>
+    /// <param name="argTypeName">The argument type name.</param>
+    /// <param name="value">A variable to receive the value.</param>
+    /// <returns>A value indicating whether or not the value was returned.</returns>
     public static bool GetValue<T>(
         this KeyValuePair<string, TypedConstant> argument,
         string argName,

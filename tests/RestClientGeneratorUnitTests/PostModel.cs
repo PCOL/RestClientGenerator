@@ -1,5 +1,8 @@
 ﻿namespace RestClientGeneratorUnitTests;
 
+/// <summary>
+/// Represents a post model.
+/// </summary>
 public class PostModel
 {
     /// <summary>

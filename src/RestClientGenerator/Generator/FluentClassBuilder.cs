@@ -327,6 +327,10 @@ internal class FluentClassBuilder
             }
         }
 
+        classDefinition
+            .Append(indentStr)
+            .AppendLine($"[System.CodeDom.Compiler.GeneratedCode(\"RestClientGenerator\", \"{System.Reflection.Assembly.GetCallingAssembly().GetName().Version}\")]");
+
         var value = this.isSealed ? "sealed " : this.isAbstract ? "abstract " : this.isPartial ? "partial " : string.Empty;
         classDefinition
             .Append(indentStr)

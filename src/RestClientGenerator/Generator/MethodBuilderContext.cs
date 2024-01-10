@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Threading;
@@ -307,6 +308,12 @@ internal class MethodBuilderContext
 
                 // Generate the 'ProcessResponseAsync()' method.
                 this.GenerateProcessResponse(methodSubClassBuilder);
+
+                // Debugging
+                if (this.MethodMember.GetAttributes().Any(a => a.AttributeClass.Name == nameof(OutputCodeAttribute)))
+                {
+                    Console.WriteLine(methodSubClassBuilder.Build());
+                }
             });
 
         var parametersStr = this.MethodMember.BuildParametersList();
@@ -324,6 +331,7 @@ internal class MethodBuilderContext
                         this.ReturnsTask,
                         $"request.ExecuteAsync({parametersStr})",
                         $"request.Execute({parametersStr})")));
+
     }
 
     /// <summary>
@@ -343,6 +351,11 @@ internal class MethodBuilderContext
         return $"{name}_{count}";
     }
 
+    /// <summary>
+    /// Adds a form url property.
+    /// </summary>
+    /// <param name="key">The key.</param>
+    /// <param name="value">The value.</param>
     private void AddFormUrlProperty(TypedConstant key, string value)
     {
         this.AddFormUrlProperty(
@@ -350,6 +363,11 @@ internal class MethodBuilderContext
             value);
     }
 
+    /// <summary>
+    /// Adds a form url property.
+    /// </summary>
+    /// <param name="key">The key.</param>
+    /// <param name="value">The value.</param>
     private void AddFormUrlProperty(TypedConstant key, TypedConstant value)
     {
         this.AddFormUrlProperty(
@@ -357,6 +375,11 @@ internal class MethodBuilderContext
             value.IsNull ? null : value.Value.ToString());
     }
 
+    /// <summary>
+    /// Adds a form url property.
+    /// </summary>
+    /// <param name="key">The key.</param>
+    /// <param name="value">The value.</param>
     private void AddFormUrlProperty(string key, string value)
     {
         this.formUrlProperties ??= new List<KeyValuePair<string, string>>();
@@ -529,9 +552,42 @@ internal class MethodBuilderContext
             }
             else if (this.ContentParameterSymbol != null)
             {
-                code
-                    .Variable("var", "json", $"this.context.Serialize({this.ContentParameterName})")
-                    .AddLine($"request.Content = new StringContent(json, System.Text.UTF8Encoding.UTF8, \"{this.ContentType}\");");
+                if (this.ContentParameterSymbol.Type.HasBaseType(nameof(HttpContent)))
+                {
+                    code.AddLine($"request.Content = {this.ContentParameterName};");
+                }
+                else if (this.ContentParameterSymbol.Type.HasBaseType("System.IO", nameof(Stream)))
+                {
+                    code.AddLine($"request.Content = new System.Net.Http.StreamContent({this.ContentParameterName});");
+                }
+                else if (this.ContentParameterSymbol.Type.ContainingNamespace.Name == "System" &&
+                    this.ContentParameterSymbol.Type.Name == "Func" &&
+                    ((INamedTypeSymbol)this.ContentParameterSymbol.Type).Arity == 1)
+                {
+                    var returnType = ((INamedTypeSymbol)this.ContentParameterSymbol.Type).TypeArguments.Last();
+
+                    if (returnType.HasBaseType(nameof(HttpClient)))
+                    {
+                        code
+                            .Variable($"{returnType.ToDisplayString()}", "__result", $"{this.ContentParameterName}()")
+                            .AddLine($"request.Content = __result;");
+                    }
+                    else if (returnType.HasBaseType("System.IO", nameof(Stream)))
+                    {
+                        code
+                            .Variable($"{returnType.ToDisplayString()}", "__result", $"{this.ContentParameterName}()")
+                            .AddLine($"request.Content = new System.Net.Http.StreamContent(__result);");
+                    }
+                    else
+                    {
+                        // Error
+                    }
+                }
+                else
+                {
+                    code.Variable("var", "json", $"this.context.Serialize({this.ContentParameterName})")
+                        .AddLine($"request.Content = new StringContent(json, System.Text.UTF8Encoding.UTF8, \"{this.ContentType}\");");
+                }
             }
         }
 
@@ -827,7 +883,7 @@ internal class MethodBuilderContext
         {
             foreach (var param in parameters)
             {
-                var typeName = param.Type.OriginalDefinition.ToString();
+                var typeName = param.Type.ToString();
                 p.Param(param.Name, typeName);
                 if (typeName == "System.Threading.CancellationToken")
                 {
