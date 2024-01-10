@@ -65,8 +65,6 @@ public class ContractSourceGenerator
                     (nameof(HttpClientContractAttribute.ContentType), nameof(String), (v) => builderContext.ContentType = (string)v),
                 });
 
-            var debugCode = builderContext.Symbol.HasAttribute(nameof(OutputCodeAttribute));
-
             var classBuilder = new FluentClassBuilder(builderContext.ClassName)
                 .Namespace($"{builderContext.Namespace}.Contracts")
                 .Using("System")
@@ -117,7 +115,7 @@ public class ContractSourceGenerator
                 $"{builderContext.ClassName}.g.cs",
                 SourceText.From(sourceCode, Encoding.UTF8));
 
-            if (debugCode)
+            if (builderContext.Symbol.HasAttribute(nameof(OutputCodeAttribute)))
             {
                 Console.WriteLine(sourceCode);
             }
