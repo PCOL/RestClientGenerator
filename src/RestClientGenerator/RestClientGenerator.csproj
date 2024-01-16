@@ -6,7 +6,7 @@
     <Authors>PCOL</Authors>
     <Description>A .NET source generator for creating REST clients from interface definitions.</Description>
     <Copyright>Copyright (c) PCOL 2024</Copyright>
-    <ProjectURL>https://github.com/PCOL/RestClientGenerator</ProjectURL>
+    <PackageProjectUrl>https://github.com/PCOL/RestClientGenerator</PackageProjectUrl>
     <PackageReadmeFile>readme.md</PackageReadmeFile>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <TargetFramework>netstandard2.0</TargetFramework>
