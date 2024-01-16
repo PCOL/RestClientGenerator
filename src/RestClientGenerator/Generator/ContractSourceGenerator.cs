@@ -11,7 +11,7 @@ using Microsoft.CodeAnalysis.CSharp;
 /// Contract source generator.
 /// </summary>
 [Generator]
-public class ContractSourceGenerator
+internal class ContractSourceGenerator
     : ISourceGenerator
 {
     /// <inheritdoc/>

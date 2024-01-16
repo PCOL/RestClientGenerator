@@ -4,6 +4,7 @@ using RestClient;
 
 [RestClient(typeof(ISimpleTestClient))]
 [RestClient(typeof(IGetClient))]
+[RestClient(typeof(IPostClient))]
 public partial class TestRestClientContext
     : RestClientContext
 {

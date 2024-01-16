@@ -86,7 +86,7 @@ internal class FluentClassBuilder
     private List<(string, bool)> usings;
 
     /// <summary>
-    /// Initialises a new instance of the <see cref="FluentMethodBuilder"/> class.
+    /// Initialises a new instance of the <see cref="FluentClassBuilder"/> class.
     /// </summary>
     /// <param name="className">The name of the class.</param>
     public FluentClassBuilder(string className)
@@ -106,9 +106,9 @@ internal class FluentClassBuilder
     }
 
     /// <summary>
-    /// Sets the methods accessability to public.
+    /// Sets the classes accessability to public.
     /// </summary>
-    /// <returns>The <see cref="FluentMethodBuilder"/> instance.</returns>
+    /// <returns>The <see cref="FluentClassBuilder"/> instance.</returns>
     public FluentClassBuilder Public()
     {
         this.accessibility = "public";
@@ -116,9 +116,9 @@ internal class FluentClassBuilder
     }
 
     /// <summary>
-    /// Sets the methods accessability to public.
+    /// Sets the classes accessability to public.
     /// </summary>
-    /// <returns>The <see cref="FluentMethodBuilder"/> instance.</returns>
+    /// <returns>The <see cref="FluentClassBuilder"/> instance.</returns>
     public FluentClassBuilder Private()
     {
         this.accessibility = "private";
@@ -126,9 +126,9 @@ internal class FluentClassBuilder
     }
 
     /// <summary>
-    /// Sets the methods accessability to public.
+    /// Sets the classes accessability to public.
     /// </summary>
-    /// <returns>The <see cref="FluentMethodBuilder"/> instance.</returns>
+    /// <returns>The <see cref="FluentClassBuilder"/> instance.</returns>
     public FluentClassBuilder Internal()
     {
         this.accessibility = "internal";
@@ -136,9 +136,9 @@ internal class FluentClassBuilder
     }
 
     /// <summary>
-    /// 
+    /// Sets the class as abstract.
     /// </summary>
-    /// <returns>The <see cref="FluentMethodBuilder"/> instance.</returns>
+    /// <returns>The <see cref="FluentClassBuilder"/> instance.</returns>
     public FluentClassBuilder Abstract()
     {
         this.isAbstract = true;
@@ -146,21 +146,42 @@ internal class FluentClassBuilder
     }
 
     /// <summary>
-    /// 
+    /// Sets the class as partial.
     /// </summary>
-    /// <returns>The <see cref="FluentMethodBuilder"/> instance.</returns>
+    /// <returns>The <see cref="FluentClassBuilder"/> instance.</returns>
     public FluentClassBuilder Partial()
     {
         this.isPartial = true;
         return this;
     }
 
+    /// <summary>
+    /// Sets the class as sealed.
+    /// </summary>
+    /// <returns>The <see cref="FluentClassBuilder"/> instance.</returns>
+    public FluentClassBuilder Sealed()
+    {
+        this.isSealed = true;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the classes namespace.
+    /// </summary>
+    /// <param name="namespace">The namespace.</param>
+    /// <returns>The <see cref="FluentClassBuilder"/> instance.</returns>
     public FluentClassBuilder Namespace(string @namespace)
     {
         this.@namespace = @namespace;
         return this;
     }
 
+    /// <summary>
+    /// Adds a using statement.
+    /// </summary>
+    /// <param name="using">The using.</param>
+    /// <param name="static">A value indicating whether or not this is a static using.</param>
+    /// <returns>The <see cref="FluentClassBuilder"/> instance.</returns>
     public FluentClassBuilder Using(string @using, bool @static = false)
     {
         this.usings ??= new List<(string, bool)>();
@@ -205,6 +226,13 @@ internal class FluentClassBuilder
         return this;
     }
 
+    /// <summary>
+    /// Adds a field to the class.
+    /// </summary>
+    /// <typeparam name="T">The fields type.</typeparam>
+    /// <param name="fieldName">The fields name.</param>
+    /// <param name="action">The action to define the field.</param>
+    /// <returns>The <see cref="FluentClassBuilder"/> instance.</returns>
     public FluentClassBuilder Field<T>(
         string fieldName,
         Action<FluentFieldBuilder> action = null)
@@ -212,6 +240,13 @@ internal class FluentClassBuilder
         return this.Field(typeof(T).FullName, fieldName, action);
     }
 
+    /// <summary>
+    /// Adds a field to the class.
+    /// </summary>
+    /// <param name="typeName">The fields type name.</param>
+    /// <param name="fieldName">The fields name.</param>
+    /// <param name="action">The action to define the field.</param>
+    /// <returns>The <see cref="FluentClassBuilder"/> instance.</returns>
     public FluentClassBuilder Field(
         string typeName,
         string fieldName,
@@ -225,6 +260,11 @@ internal class FluentClassBuilder
         return this;
     }
 
+    /// <summary>
+    /// Adds a constructor to the class.
+    /// </summary>
+    /// <param name="action">The action to define the constructor.</param>
+    /// <returns>The <see cref="FluentClassBuilder"/> instance.</returns>
     public FluentClassBuilder Constructor(
         Action<FluentMethodBuilder> action)
     {
@@ -236,6 +276,12 @@ internal class FluentClassBuilder
         return this;
     }
 
+    /// <summary>
+    /// Adds a method to the class.
+    /// </summary>
+    /// <param name="methodName">The methods name.</param>
+    /// <param name="action">The action to define the method.</param>
+    /// <returns>The <see cref="FluentClassBuilder"/> instance.</returns>
     public FluentClassBuilder Method(
         string methodName,
         Action<FluentMethodBuilder> action)
@@ -248,7 +294,7 @@ internal class FluentClassBuilder
     }
 
     /// <summary>
-    /// Adds a method.
+    /// Adds a method to the class.
     /// </summary>
     /// <param name="methodName">The name of the method.</param>
     /// <returns>A <see cref="FluentMethodBuilder"/>.</returns>
@@ -260,7 +306,12 @@ internal class FluentClassBuilder
         return methodBuilder;
     }
 
-
+    /// <summary>
+    /// Adds a property to the class.
+    /// </summary>
+    /// <param name="propertyName">The name of the property.</param>
+    /// <param name="action">The action to define the property.</param>
+    /// <returns>The <see cref="FluentClassBuilder"/> instance.</returns>
     public FluentClassBuilder Property(
         string propertyName,
         Action<FluentPropertyBuilder> action)
@@ -272,6 +323,12 @@ internal class FluentClassBuilder
         return this;
     }
 
+    /// <summary>
+    /// Adds a sub class to the class.
+    /// </summary>
+    /// <param name="className">The name of the sub class.</param>
+    /// <param name="action">The action to define the class.</param>
+    /// <returns>The <see cref="FluentClassBuilder"/> instance.</returns>
     public FluentClassBuilder SubClass(
         string className,
         Action<FluentClassBuilder> action)
@@ -284,14 +341,19 @@ internal class FluentClassBuilder
     }
 
     /// <summary>
-    /// Builds the method definition.
+    /// Builds the class definition.
     /// </summary>
-    /// <returns>The method definition.</returns>
+    /// <returns>The class definition.</returns>
     public string Build()
     {
         return this.Build(0);
     }
 
+    /// <summary>
+    /// Builds the class definition.
+    /// </summary>
+    /// <param name="indent">The number of characters to indent.</param>
+    /// <returns>The class definition.</returns>
     private string Build(int indent)
     {
         var indentStr = new string(' ', indent);

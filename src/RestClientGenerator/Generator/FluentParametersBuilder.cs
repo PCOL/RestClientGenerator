@@ -24,6 +24,7 @@ internal class FluentParametersBuilder
     /// Adds a parameter.
     /// </summary>
     /// <param name="parameterName">The parameter name.</param>
+    /// <param name="action">An action to build the parameter.</param>
     /// <returns>The <see cref="FluentParameterBuilder"/> instance.</returns>
     public FluentParametersBuilder Param(
         string parameterName,

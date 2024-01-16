@@ -9,7 +9,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 /// <summary>
 /// Attribute syntax receiver.
 /// </summary>
-public class AttributeSyntaxReceiver<TAttribute1, TAttribute2, TAttribute3>
+internal class AttributeSyntaxReceiver<TAttribute1, TAttribute2, TAttribute3>
     : ISyntaxReceiver
     where TAttribute1 : Attribute
     where TAttribute2 : Attribute

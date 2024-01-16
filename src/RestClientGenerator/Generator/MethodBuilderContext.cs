@@ -41,6 +41,26 @@ internal class MethodBuilderContext
     private List<KeyValuePair<string, string>> formUrlProperties;
 
     /// <summary>
+    /// The request action.
+    /// </summary>
+    private string requestAction;
+
+    /// <summary>
+    /// The request async func.
+    /// </summary>
+    private string requestAsyncFunc;
+
+    /// <summary>
+    /// The response action.
+    /// </summary>
+    private string responsetAction;
+
+    /// <summary>
+    /// The response async func.
+    /// </summary>
+    private string responseAsyncFunc;
+
+    /// <summary>
     /// Gets or sets the class builder context.
     /// </summary>
     public ClassBuilderContext ClassBuilderContext { get; set; }
@@ -269,6 +289,23 @@ internal class MethodBuilderContext
                     this.AddQueryString(key, value);
                 }
             }
+
+            if (parameterSymbol.Type.ToString() == "System.Action<System.Net.Http.HttpRequestMessage>")
+            {
+                this.requestAction = parameterSymbol.Name;
+            }
+            else if (parameterSymbol.Type.ToString() == "System.Func<System.Net.Http.HttpRequestMessage, System.Threading.Tasks.Task>")
+            {
+                this.requestAsyncFunc = parameterSymbol.Name;
+            }
+            else if (parameterSymbol.Type.ToString() == "System.Action<System.Net.Http.HttpResponseMessage>")
+            {
+                this.responsetAction = parameterSymbol.Name;
+            }
+            else if (parameterSymbol.Type.ToString() == "System.Func<System.Net.Http.HttpResponseMessage, System.Threading.Tasks.Task>")
+            {
+                this.responseAsyncFunc = parameterSymbol.Name;
+            }
         }
     }
 
@@ -446,22 +483,46 @@ internal class MethodBuilderContext
     {
         var parametersStr = this.MethodMember.BuildParametersList();
 
+        var codeBlock = new FluentCodeBuilder()
+            .Variable("var", "__httpClient", "this.context.GetHttpClient()");
+
+        if (this.requestAction != null)
+        {
+            codeBlock.AddLine($"{this.requestAction}(__request);");
+        }
+        else if (this.requestAsyncFunc != null)
+        {
+            codeBlock.AddLine($"await {this.requestAsyncFunc}(__request).ConfigureAwait(false);");
+        }
+
+        codeBlock
+            .Variable("var", "__response", "await __httpClient.SendAsync(__request, cancellationToken).ConfigureAwait(false)");
+
+        if (this.responsetAction != null)
+        {
+            codeBlock.AddLine($"{this.responsetAction}(__response);");
+        }
+        else if (this.responseAsyncFunc != null)
+        {
+            codeBlock.AddLine($"await {this.responseAsyncFunc}(__response).ConfigureAwait(false);");
+        }
+
+        codeBlock
+            .Return("__response");
+
         var sendMethod = builder.Method("SendAsync")
             .Private()
             .Async()
             .Params(p => AddParameters(p, true))
             .Returns("System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage>")
             .Body(c => c
-                .Variable("HttpRequestMessage", "request", "null")
+                .Variable("HttpRequestMessage", "__request", "null")
                 .AssignIf(
                     this.ReturnsTask,
-                    "request",
+                    "__request",
                     $"await this.CreateRequestAsync({parametersStr})",
                     $"this.CreateRequest({parametersStr})")
-                .UsingBlock("request", b => b
-                    .Variable("var", "httpClient", "this.context.GetHttpClient()")
-                    .Return("await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false)")));
-
+                .UsingBlock("__request", codeBlock));
 
         return sendMethod;
     }

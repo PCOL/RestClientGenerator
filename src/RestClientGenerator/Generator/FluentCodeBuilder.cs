@@ -50,7 +50,7 @@ internal class FluentCodeBuilder
     }
 
     /// <summary>
-    /// 
+    /// Adds a blank line.
     /// </summary>
     /// <param name="indent">The number of spaces to indent.</param>
     /// <returns>The <see cref="FluentCodeBuilder"/>.</returns>
@@ -192,6 +192,21 @@ internal class FluentCodeBuilder
     }
 
     /// <summary>
+    /// Adds a using block.
+    /// </summary>
+    /// <param name="expression"></param>
+    /// <param name="codeBlock">The code block.</param>
+    /// <param name="indent">The number of spaces to indent.</param>
+    /// <returns>The <see cref="FluentCodeBuilder"/>.</returns>
+    public FluentCodeBuilder UsingBlock(
+        string expression,
+        FluentCodeBuilder codeBlock,
+        int indent = 0)
+    {
+        return this.AddBlock($"using ({expression})", codeBlock, indent);
+    }
+
+    /// <summary>
     /// Adds a block of code.
     /// </summary>
     /// <param name="command">The command.</param>
@@ -203,12 +218,27 @@ internal class FluentCodeBuilder
         Action<FluentCodeBuilder> action,
         int indent = 0)
     {
-        var builder = new FluentCodeBuilder();
-        action(builder);
+        var codeBlock = new FluentCodeBuilder();
+        action(codeBlock);
 
+        return this.AddBlock(command, codeBlock, indent);
+    }
+
+    /// <summary>
+    /// Adds a block of code.
+    /// </summary>
+    /// <param name="command">The command.</param>
+    /// <param name="codeBlock">The code to place inside the block.</param>
+    /// <param name="indent">The number of spaces to indent.</param>
+    /// <returns>The <see cref="FluentCodeBuilder"/>.</returns>
+    private FluentCodeBuilder AddBlock(
+        string command,
+        FluentCodeBuilder codeBlock,
+        int indent = 0)
+    {
         this.AddLine(command, indent);
         this.AddLine("{", indent);
-        foreach (var (ind, line) in builder.code)
+        foreach (var (ind, line) in codeBlock.code)
         {
             this.AddLine(line, indent + 1 + ind);
         }
