@@ -20,20 +20,20 @@ public class RetryAttribute
     /// <summary>
     /// Gets or sets the exceptions that will cause an operation to retry.
     /// </summary>
-    public Exception[] ExceptionsToRetry { get; set; }
+    public Type[] ExceptionTypesToRetry { get; set; }
 
     /// <summary>
     /// Gets or sets the number of retries.
     /// </summary>
-    public int RetryCount { get; set; }
+    public int RetryLimit { get; set; }
 
     /// <summary>
-    /// Gets or sets the amount of time to wait between retries.
+    /// Gets or sets the number of milliseconds to wait between retries.
     /// </summary>
     public int WaitTime { get; set; }
 
     /// <summary>
-    /// Gets or sets the maximum wait time.
+    /// Gets or sets the maximum number of milliseconds to wait between retries.
     /// </summary>
     public int MaxWaitTime { get; set; }
 

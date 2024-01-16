@@ -6,7 +6,6 @@ using System;
 /// An attributed used to specify that a form url encoded property should be added to the
 /// request.
 /// </summary>
-[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
 public class AddFormUrlEncodedPropertyAttribute
     : Attribute

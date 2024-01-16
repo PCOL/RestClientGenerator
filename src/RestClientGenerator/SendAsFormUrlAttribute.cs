@@ -5,7 +5,6 @@ using System;
 /// <summary>
 /// An attribute used to indicate a parameter should be sent form url encoded.
 /// </summary>
-[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 [AttributeUsage(AttributeTargets.Parameter)]
 public class SendAsFormUrlAttribute
     : Attribute

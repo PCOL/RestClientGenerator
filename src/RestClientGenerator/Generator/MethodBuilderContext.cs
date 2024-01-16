@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -61,6 +62,11 @@ internal class MethodBuilderContext
     private string responseAsyncFunc;
 
     /// <summary>
+    /// The uri the request should use.
+    /// </summary>
+    private string uriParameter;
+
+    /// <summary>
     /// Gets or sets the class builder context.
     /// </summary>
     public ClassBuilderContext ClassBuilderContext { get; set; }
@@ -106,14 +112,34 @@ internal class MethodBuilderContext
     public bool HasRetry { get; private set; }
 
     /// <summary>
+    /// Gets or sets the retry limit.
+    /// </summary>
+    public int? RetryLimit { get; private set; }
+
+    /// <summary>
     /// Gets or sets the a value indicating whether or not the retry wait time should double on each retry.
     /// </summary>
     public bool? DoubleOnRetry { get; private set; }
 
     /// <summary>
-    /// Gets or sets the retry limit.
+    /// Gets or sets the retry wait time.
     /// </summary>
-    public int? RetryLimit { get; private set; }
+    public int? RetryWaitTime { get; private set; }
+
+    /// <summary>
+    /// Gets or sets the retry maximum wait time.
+    /// </summary>
+    public int? RetryMaxWaitTime { get; private set; }
+
+    /// <summary>
+    /// Gets or sets the retry status codes.
+    /// </summary>
+    public string[] RetryHttpStatusCodes { get; private set; }
+
+    /// <summary>
+    /// Gets or sets the retry exception types.
+    /// </summary>
+    public string[] RetryExceptionTypes { get; private set; }
 
     /// <summary>
     /// Gets or sets the response processor type for this request.
@@ -187,13 +213,29 @@ internal class MethodBuilderContext
                 this.HasRetry = true;
                 foreach (var arg in attr.NamedArguments)
                 {
-                    if (arg.GetValue<bool>(nameof(RetryAttribute.DoubleWaitTimeOnRetry), nameof(Boolean), out var doubleOnRetry))
+                    if (arg.GetValue<int>(nameof(RetryAttribute.RetryLimit), nameof(Int32), out var retryCount))
+                    {
+                        this.RetryLimit = retryCount;
+                    }
+                    else if (arg.GetValue<bool>(nameof(RetryAttribute.DoubleWaitTimeOnRetry), nameof(Boolean), out var doubleOnRetry))
                     {
                         this.DoubleOnRetry = doubleOnRetry;
                     }
-                    else if (arg.GetValue<int>(nameof(RetryAttribute.RetryCount), nameof(Int32), out var retryCount))
+                    else if (arg.GetValue<int>(nameof(RetryAttribute.WaitTime), nameof(Int32), out var waitTime))
                     {
-                        this.RetryLimit = retryCount;
+                        this.RetryWaitTime = waitTime;
+                    }
+                    else if (arg.GetValue<int>(nameof(RetryAttribute.MaxWaitTime), nameof(Int32), out var maxWaitTime))
+                    {
+                        this.RetryMaxWaitTime = maxWaitTime;
+                    }
+                    else if (arg.GetValue<string[]>(nameof(RetryAttribute.HttpStatusCodesToRetry), nameof(HttpStatusCode), out var statusCodes))
+                    {
+                        this.RetryHttpStatusCodes = statusCodes;
+                    }
+                    else if (arg.GetValue<string[]>(nameof(RetryAttribute.ExceptionTypesToRetry), nameof(String), out var exceptionTypes))
+                    {
+                        this.RetryExceptionTypes = exceptionTypes;
                     }
                 }
             }
@@ -288,6 +330,10 @@ internal class MethodBuilderContext
 
                     this.AddQueryString(key, value);
                 }
+                else if (attr.AttributeClass.Name == nameof(UriAttribute))
+                {
+                    this.uriParameter = parameterSymbol.Name;
+                }
             }
 
             if (parameterSymbol.Type.ToString() == "System.Action<System.Net.Http.HttpRequestMessage>")
@@ -322,11 +368,11 @@ internal class MethodBuilderContext
                 // Add 'context' field to class
                 methodSubClassBuilder
                     .Private()
-                    .Field<RestClientContext>("context")
+                    .Field<RestClientContext>("__context")
                     .Constructor(m => m
                         .Public()
                         .Param<RestClientContext>("context")
-                        .Body(c => c.Assign("this.context", "context")));
+                        .Body(c => c.Assign("this.__context", "context")));
 
                 // Generate the 'SendAsync' method
                 this.GenerateSend(methodSubClassBuilder);
@@ -362,7 +408,7 @@ internal class MethodBuilderContext
                 .Returns(this.MethodMember.ReturnType.ToString())
                 .Params(p => this.AddParameters(p))
                 .Body(c => c
-                    .Variable("var", "request", $"new {memberClassName}(this.context)")
+                    .Variable("var", "request", $"new {memberClassName}(this.__context)")
                     .AddLine($"Console.WriteLine(request.GetRequestUri({parametersStr}));")
                     .ReturnIf(
                         this.ReturnsTask,
@@ -484,7 +530,7 @@ internal class MethodBuilderContext
         var parametersStr = this.MethodMember.BuildParametersList();
 
         var codeBlock = new FluentCodeBuilder()
-            .Variable("var", "__httpClient", "this.context.GetHttpClient()");
+            .Variable("var", "__httpClient", "this.__context.GetHttpClient()");
 
         if (this.requestAction != null)
         {
@@ -552,7 +598,7 @@ internal class MethodBuilderContext
                     var authCode = new FluentCodeBuilder()
                             .Variable<string>("scheme", "null")
                             .Variable<string>("token", "null")
-                            .Variable("var", "options", "this.context.Options")
+                            .Variable("var", "options", "this.__context.Options")
                             .BlankLine();
 
                     if (this.AuthorizationFactoryType != null)
@@ -646,7 +692,7 @@ internal class MethodBuilderContext
                 }
                 else
                 {
-                    code.Variable("var", "json", $"this.context.Serialize({this.ContentParameterName})")
+                    code.Variable("var", "json", $"this.__context.Serialize({this.ContentParameterName})")
                         .AddLine($"request.Content = new StringContent(json, System.Text.UTF8Encoding.UTF8, \"{this.ContentType}\");");
                 }
             }
@@ -745,22 +791,26 @@ internal class MethodBuilderContext
 
         if (this.HasRetry == true)
         {
+            var retryLimit = this.RetryLimit.HasValue ? this.RetryLimit.Value : 3;
+            var waitTime = this.RetryWaitTime.HasValue ? this.RetryWaitTime.Value : 250;
+            var maxWaitTimeSpanString = this.RetryMaxWaitTime.HasValue ? $"TimeSpan.FromMilliseconds({this.RetryMaxWaitTime.Value})" : "TimeSpan.MaxValue";
+            var doubleOnRetry = this.DoubleOnRetry.HasValue ? this.DoubleOnRetry.Value : false;
+
             var retryCode = new FluentCodeBuilder()
-                .Variable("RestClient.Retry", "retry", "new RestClient.Retry()")
-                .AddLine("retry = retry");
-
-            if (this.DoubleOnRetry.HasValue)
-            {
-                retryCode.AddLine($".SetDoubleWaitTimeOnRetry({this.DoubleOnRetry.Value.ToString().ToLower()})", 1);
-            }
-
-            if (this.RetryLimit.HasValue)
-            {
-                retryCode.AddLine($".SetRetryLimit({this.RetryLimit.Value})", 1);
-            }
-
-            retryCode
-                .AppendLine(";")
+                .Variable("var", "retryFactory", $"this.__context.GetRetryFactory()")
+                .Variable(
+                    "HttpStatusCode",
+                    "statusCodes",
+                    this.RetryHttpStatusCodes,
+                    (value) => $"(HttpStatusCode){value}")
+                .BlankLine()
+                .Variable(
+                    "Type",
+                    "exceptionTypes",
+                    this.RetryExceptionTypes,
+                    value => $"typeof({value})")
+                .BlankLine()
+                .Variable("var", "retry", $"retryFactory.CreateRetry({retryLimit}, TimeSpan.FromMilliseconds({waitTime}), {maxWaitTimeSpanString}, {doubleOnRetry.ToString().ToLower()}, statusCodes, exceptionTypes)")
                 .Return("retry");
 
             return retryMethod.Body(retryCode);
@@ -783,10 +833,15 @@ internal class MethodBuilderContext
             .Returns<string>()
             .Params(p => AddParameters(p));
 
-        if (string.IsNullOrWhiteSpace(this.RequestUri) == false)
+        if (this.uriParameter != null)
         {
             requestUriMethod.Body(c => c
-                .Variable("var", "baseUrl", "this.context.Options.BaseUrl")
+                .Return(this.uriParameter));
+        }
+        else if (string.IsNullOrWhiteSpace(this.RequestUri) == false)
+        {
+            requestUriMethod.Body(c => c
+                .Variable("var", "baseUrl", "this.__context.Options.BaseUrl")
                 .AddQueryStrings("queryString", this.queryStrings)
                 .Variable("var", "url", $"$\"{this.RequestUri}\"")
                 .Variable("var", "fullUrl", "$\"{url}\" + queryString")

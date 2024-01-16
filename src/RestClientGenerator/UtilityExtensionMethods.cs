@@ -321,10 +321,22 @@ internal static class UtilityExtensionMethods
         out T value)
     {
         value = default;
-        if (argument.Key == argName && argument.Value.Type.Name == argTypeName)
+        if (argument.Key == argName)
         {
-            value = (T)argument.Value.Value;
-            return true;
+            if (argument.Value.Type.Kind == SymbolKind.ArrayType)
+            {
+                if (typeof(T) == typeof(string[]))
+                {
+                    value = (T)(object)argument.Value.Values.Select(v => v.Value.ToString()).ToArray();
+                    return true;
+                }
+
+            }
+            else if (argument.Value.Type.Name == argTypeName)
+            {
+                value = (T)argument.Value.Value;
+                return true;
+            }
         }
 
         return false;

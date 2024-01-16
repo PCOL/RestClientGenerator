@@ -3,7 +3,6 @@
 /// <summary>
 /// Specifies the the parameter should be sent as an authorization header.
 /// </summary>
-[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 public class AuthorizationHeaderAttribute
     : SendAsHeaderAttribute
 {

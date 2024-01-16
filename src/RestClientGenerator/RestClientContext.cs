@@ -77,4 +77,18 @@ public abstract class RestClientContext
     /// <param name="content">The content to deserialize.</param>
     /// <returns>An object representation of the content.</returns>
     public abstract T Deserialize<T>(string content);
+
+    /// <summary>
+    /// Gets the retry factory.
+    /// </summary>
+    /// <returns>The retry factory.</returns>
+    public virtual IRetryFactory GetRetryFactory()
+    {
+        if (this.options.RetryFactory != null)
+        {
+            return this.options.RetryFactory;
+        }
+
+        return new DefaultRetryFactory();
+    }
 }

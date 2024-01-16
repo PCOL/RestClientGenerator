@@ -5,7 +5,6 @@ using System;
 /// <summary>
 /// An attribute used to specifiy that an authorization header should be added to the request.
 /// </summary>
-[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 [AttributeUsage(AttributeTargets.Interface | AttributeTargets.Method, AllowMultiple = false)]
 public class AddAuthorizationHeaderAttribute
     : Attribute

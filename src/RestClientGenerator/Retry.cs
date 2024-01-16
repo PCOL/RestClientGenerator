@@ -167,9 +167,30 @@ public class Retry
     public Retry AddException<TException>()
         where TException : Exception
     {
-        this.exceptions.Add(typeof(TException));
+        return this.AddException(typeof(TException));
+    }
+
+    /// <summary>
+    /// Adds an exception to retry on.
+    /// </summary>
+    /// <typeparam name="TException">The exception type.</typeparam>
+    /// <returns>The <see cref="Retry"/> instance.</returns>
+    public Retry AddException(Type exceptionType)
+    {
+        if (exceptionType == null)
+        {
+            throw new ArgumentNullException(nameof(exceptionType));
+        }
+
+        if (exceptionType.IsSubclassOf(typeof(Exception)) == false)
+        {
+            throw new ArgumentException("The exception type must be a subclass of Exception.", nameof(exceptionType));
+        }
+
+        this.exceptions.Add(exceptionType);
         return this;
     }
+
 
     /// <summary>
     /// Adds an exception retry handler.

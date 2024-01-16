@@ -5,7 +5,6 @@ using System;
 /// <summary>
 /// An attribute to declare an interface as an Http client contract.
 /// </summary>
-[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 [AttributeUsage(AttributeTargets.Interface)]
 public class HttpClientContractAttribute
     : Attribute

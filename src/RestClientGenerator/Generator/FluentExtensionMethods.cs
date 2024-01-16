@@ -204,6 +204,69 @@ internal static class FluentExtensionMethods
     }
 
     /// <summary>
+    /// Adds a variable declaration.
+    /// </summary>
+    /// <param name="code">A <see cref="FluentCodeBuilder"/>.</param>
+    /// <param name="condition">The condition.</param>
+    /// <param name="typeName">The type name.</param>
+    /// <param name="name">The variable name.</param>
+    /// <param name="initialValue">The initial value.</param>
+    /// <param name="elseInitialValue">The initial value.</param>
+    /// <param name="indent">The number of spaces to indent.</param>
+    /// <returns>The <see cref="FluentCodeBuilder"/>.</returns>
+    public static FluentCodeBuilder VariableIf(
+        this FluentCodeBuilder code,
+        bool condition,
+        string typeName,
+        string name,
+        string initialValue = "null",
+        string elseInitialValue = "null",
+        int indent = 0)
+    {
+        return code
+            .AddLineIf(
+                condition,
+                $"{typeName} {name} = {initialValue};",
+                $"{typeName} {name} = {elseInitialValue};",
+                indent);
+    }
+
+    /// <summary>
+    /// Adds a variable declaration.
+    /// </summary>
+    /// <param name="code">A <see cref="FluentCodeBuilder"/>.</param>
+    /// <param name="typeName">The type name.</param>
+    /// <param name="name">The variable name.</param>
+    /// <param name="list">The list.</param>
+    /// <param name="func">A function to encode the value.</param>
+    /// <param name="indent">The number of spaces to indent.</param>
+    /// <returns>The <see cref="FluentCodeBuilder"/>.</returns>
+    public static FluentCodeBuilder Variable<T>(
+        this FluentCodeBuilder code,
+        string typeName,
+        string name,
+        IEnumerable<T> list,
+        Func<T, string> func,
+        int indent = 0)
+    {
+        var initialValue = list == null ? "null;" : list.Any() == false ? $"new {typeName}[0];" : $"new {typeName}[]";
+        code.AddLine($"{typeName}[] {name} = {initialValue}", indent);
+        if (list.IsNullOrEmpty() == false)
+        {
+            code.AddLine("{", indent);
+            foreach(var item in list)
+            {
+                code.AddLine($"    {func(item)},", indent);
+            }
+
+            code.AddLine("};", indent);
+        }
+
+        return code;
+    }
+
+
+    /// <summary>
     /// Gets a type or its inner type depending on the types arity.
     /// </summary>
     /// <param name="type">The type.</param>

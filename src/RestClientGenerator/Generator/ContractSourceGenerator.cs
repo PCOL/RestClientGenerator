@@ -76,14 +76,14 @@ internal class ContractSourceGenerator
                 .Public()
                 .Partial()
                 .Implements(builderContext.TypeName)
-                .Field<RestClientContext>("context")
+                .Field<RestClientContext>("__context")
                 .Constructor(c => c
                     .Public())
                 .Constructor(c => c
                     .Public()
                     .Param<RestClientContext>("context")
                     .Body(c => c
-                        .Assign("this.context", "context")));
+                        .Assign("this.__context", "context")));
 
             foreach (var member in builderContext.Symbol.GetAllMembers())
             {

@@ -29,6 +29,11 @@ public class RestClientOptions
     public IAuthorizationHeaderFactory AuthorizationHeaderFactory { get; set; }
 
     /// <summary>
+    /// Gets or sets the <see cref="IRetryFactory"/> to use.
+    /// </summary>
+    public IRetryFactory RetryFactory { get; set; }
+
+    /// <summary>
     /// Gets or sets a <see cref="IServiceProvider"/> for use with Dependency injection.
     /// </summary>
     public IServiceProvider Services { get; set; }

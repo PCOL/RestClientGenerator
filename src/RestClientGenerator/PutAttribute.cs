@@ -3,7 +3,6 @@
 /// <summary>
 /// An attribute used to state that a method call should build a put request.
 /// </summary>
-[System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
 public class PutAttribute
     : MethodAttribute
 {
