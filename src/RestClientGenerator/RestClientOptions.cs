@@ -19,11 +19,6 @@ public class RestClientOptions
     public HttpClient HttpClient { get; set; }
 
     /// <summary>
-    /// Gets or sets the <see cref="IHttpClientFactory"/> to use.
-    /// </summary>
-    public IHttpClientFactory HttpClientFactory { get; set; }
-
-    /// <summary>
     /// Gets or sets the <see cref="IAuthorizationHeaderFactory"/> to use.
     /// </summary>
     public IAuthorizationHeaderFactory AuthorizationHeaderFactory { get; set; }
@@ -46,20 +41,6 @@ public class RestClientOptions
     internal T GetService<T>()
     {
         return (T)this.Services?.GetService(typeof(T));
-    }
-
-    /// <summary>
-    /// Gets a <see cref="IHttpClientFactory"/> if set.
-    /// </summary>
-    /// <returns>A <see cref="IHttpClientFactory"/> if set; otherwise null.</returns>
-    internal IHttpClientFactory GetHttpClientFactory()
-    {
-        if (this.HttpClientFactory != null)
-        {
-            return this.HttpClientFactory;
-        }
-
-        return this.GetService<IHttpClientFactory>();
     }
 
     /// <summary>

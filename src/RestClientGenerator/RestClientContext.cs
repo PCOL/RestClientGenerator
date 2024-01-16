@@ -37,16 +37,6 @@ public abstract class RestClientContext
     /// <returns>A <see cref="HttpClient"/>.</returns>
     public HttpClient GetHttpClient(string name = "")
     {
-        var httpClientFactory = this.options.GetHttpClientFactory();    
-        if (httpClientFactory != null)
-        {
-            var client = httpClientFactory.CreateClient(name);
-            if (client != null)
-            {
-                return client;
-            }
-        }
-            
         if (this.httpClient == null)
         {
             lock (this)
