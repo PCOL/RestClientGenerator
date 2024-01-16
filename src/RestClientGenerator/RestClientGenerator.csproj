@@ -8,6 +8,7 @@
     <Copyright>Copyright (c) PCOL 2024</Copyright>
     <ProjectURL>https://github.com/PCOL/RestClientGenerator</ProjectURL>
     <PackageReadmeFile>readme.md</PackageReadmeFile>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <TargetFramework>netstandard2.0</TargetFramework>
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     <IsRoslynComponent>true</IsRoslynComponent>
@@ -28,5 +29,6 @@
 
   <ItemGroup>
     <None Include="..\..\readme.md" Pack="true" PackagePath="\"/>
+    <None Include="..\..\LICENSE" Pack="true" PackagePath="\"/>
   </ItemGroup>
 </Project>
