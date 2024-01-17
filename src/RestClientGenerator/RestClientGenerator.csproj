@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <PackageId>RestClientSourceGenerator</PackageId>
-    <PackageVersion>1.0.0-alpha.1</PackageVersion>
+    <PackageVersion>1.0.0-alpha.3</PackageVersion>
     <Authors>PCOL</Authors>
     <Description>A .NET source generator for creating REST clients from interface definitions.</Description>
     <Copyright>Copyright (c) PCOL 2024</Copyright>
@@ -12,8 +12,8 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     <IsRoslynComponent>true</IsRoslynComponent>
-	  <RootNamespace>RestClient</RootNamespace>
-	  <LangVersion>Latest</LangVersion>
+	<RootNamespace>RestClient</RootNamespace>
+	<LangVersion>Latest</LangVersion>
   </PropertyGroup>
 
   <!-- The following libraries include the source generator interfaces and types we need -->

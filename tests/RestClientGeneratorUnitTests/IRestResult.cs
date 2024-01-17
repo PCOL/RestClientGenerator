@@ -13,7 +13,7 @@ public interface IRestResult
     /// <summary>
     /// Gets the service status.
     /// </summary>
-    [JsonConverter(typeof(JsonStringEnumConverter))]
+    [JsonConverter(typeof(JsonStringEnumConverter<RestStatus>))]
     RestStatus Status { get; }
 
     /// <summary>

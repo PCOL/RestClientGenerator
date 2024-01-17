@@ -6,12 +6,13 @@ using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
 using Microsoft.CodeAnalysis.CSharp;
+using System.Collections.Generic;
 
 /// <summary>
 /// Contract source generator.
 /// </summary>
 [Generator]
-internal class ContractSourceGenerator
+public class ContractSourceGenerator
     : ISourceGenerator
 {
     /// <inheritdoc/>
@@ -29,8 +30,8 @@ internal class ContractSourceGenerator
             return;
         }
 
-        this.GenerateClients(context, syntaxReceiver);
-        this.GenerateRestClientContexts(context, syntaxReceiver);
+        this.GenerateClients(context, syntaxReceiver, out var clientNamespaces);
+        this.GenerateRestClientContexts(context, syntaxReceiver, clientNamespaces);
     }
 
     /// <summary>
@@ -38,10 +39,14 @@ internal class ContractSourceGenerator
     /// </summary>
     /// <param name="context">The generator execution context.</param>
     /// <param name="syntaxReceiver">The syntax receiver.</param>
+    /// <param name="clientNamespaces">A variable to recieve the client namespaces.</param>
     private void GenerateClients(
         GeneratorExecutionContext context,
-        AttributeSyntaxReceiver<GenerateContractAttribute, HttpClientContractAttribute, RestClientAttribute> syntaxReceiver)
+        AttributeSyntaxReceiver<GenerateContractAttribute, HttpClientContractAttribute, RestClientAttribute> syntaxReceiver,
+        out List<string> clientNamespaces)
     {
+        clientNamespaces = new List<string>();
+
         foreach (var interfaceSyntax in syntaxReceiver.Interfaces)
         {
             var builderContext = new ClassBuilderContext();
@@ -64,6 +69,8 @@ internal class ContractSourceGenerator
                     (nameof(HttpClientContractAttribute.Route), nameof(String), (v) => builderContext.Route = (string)v),
                     (nameof(HttpClientContractAttribute.ContentType), nameof(String), (v) => builderContext.ContentType = (string)v),
                 });
+
+            clientNamespaces.Add($"{builderContext.Namespace}.Contracts");
 
             var classBuilder = new FluentClassBuilder(builderContext.ClassName)
                 .Namespace($"{builderContext.Namespace}.Contracts")
@@ -127,9 +134,11 @@ internal class ContractSourceGenerator
     /// </summary>
     /// <param name="context">The generator execution context.</param>
     /// <param name="syntaxReceiver">The syntax receiver.</param>
+    /// <param name="clientNamespaces">A list of client namespaces.</param>
     private void GenerateRestClientContexts(
         GeneratorExecutionContext context,
-        AttributeSyntaxReceiver<GenerateContractAttribute, HttpClientContractAttribute, RestClientAttribute> syntaxReceiver)
+        AttributeSyntaxReceiver<GenerateContractAttribute, HttpClientContractAttribute, RestClientAttribute> syntaxReceiver,
+        IEnumerable<string> clientNamespaces)
     {
         foreach (var classSyntax in syntaxReceiver.Classes)
         {
@@ -152,9 +161,13 @@ internal class ContractSourceGenerator
                 .Namespace(@namespace)
                 .Using("System.Threading")
                 .Using("System.Threading.Tasks")
-                .Using($"{@namespace}.Contracts")
                 .Public()
                 .Partial();
+
+            foreach(var ns in clientNamespaces.Distinct())
+            {
+                classBuilder.Using(ns);
+            }
 
             foreach (var attr in symbol.GetAttributes())
             {

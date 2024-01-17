@@ -1,10 +1,12 @@
 ﻿namespace TestClient;
 
 using RestClient;
+using TestClient.Services;
 
 /// <summary>
 /// Represents the rest client context.
 /// </summary>
+[OutputCode]
 [RestClient(typeof(IClient))]
 [RestClient(typeof(ITokenClient))]
 public partial class ClientContext

@@ -1,4 +1,4 @@
-﻿namespace TestClient;
+﻿namespace TestClient.Services;
 
 using System;
 using System.Net;
@@ -9,7 +9,6 @@ using RestClient;
 [GenerateContract]
 public interface IClient
 {
-    [OutputCode]
     [Get("cluster/state/api/v1/workload/{id}")]
     [HttpResponseProcessor(typeof(ServiceResponseProcessor<WorkloadModel>))]
     [Retry(RetryLimit = 3, WaitTime = 250)]
