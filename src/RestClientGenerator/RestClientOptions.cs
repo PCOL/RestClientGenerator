@@ -47,7 +47,7 @@ public class RestClientOptions
     /// Gets a <see cref="IAuthorizationHeaderFactory"/> if set.
     /// </summary>
     /// <returns>A <see cref="IAuthorizationHeaderFactory"/> if set; otherwise null.</returns>
-    internal IAuthorizationHeaderFactory GetAuthorizationHeaderFactory()
+    public IAuthorizationHeaderFactory GetAuthorizationHeaderFactory()
     {
         if (this.AuthorizationHeaderFactory != null)
         {

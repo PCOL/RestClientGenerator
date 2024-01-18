@@ -70,6 +70,30 @@ public class ContractSourceGenerator
                     (nameof(HttpClientContractAttribute.ContentType), nameof(String), (v) => builderContext.ContentType = (string)v),
                 });
 
+            var hasAuthorization = false;
+            string authorizationHeaderValue = null;
+            string authorizationFactoryType = null;
+            var attrs = builderContext.Symbol.GetAttributes();
+            foreach (var attr in attrs)
+            {
+                if (attr.AttributeClass.Name == nameof(AddAuthorizationHeaderAttribute))
+                {
+                    hasAuthorization = true;
+                    if (attr.ConstructorArguments.Any())
+                    {
+                        var firstArg = attr.ConstructorArguments.First();
+                        if (firstArg.Type.Name == nameof(String))
+                        {
+                            authorizationHeaderValue = firstArg.Value.ToString();
+                        }
+                        else if (firstArg.Type.Name == nameof(Type))
+                        {
+                            authorizationFactoryType = firstArg.Value.ToString();
+                        }
+                    }
+                }
+            }
+
             clientNamespaces.Add($"{builderContext.Namespace}.Contracts");
 
             var classBuilder = new FluentClassBuilder(builderContext.ClassName)
@@ -105,7 +129,10 @@ public class ContractSourceGenerator
                         Route = builderContext.Route,
                         ContentType = builderContext.ContentType ?? "application/json",
                         ReturnType = (INamedTypeSymbol)methodMember.ReturnType,
-                        ReturnsTask = methodMember.ReturnType.BaseType.Name == "Task"
+                        ReturnsTask = methodMember.ReturnType.BaseType.Name == "Task",
+                        HasAuthorization = hasAuthorization,
+                        AuthorizationHeaderValue = authorizationHeaderValue,
+                        AuthorizationFactoryType = authorizationFactoryType,
                     };
 
                     methodBuilderContext.ProcessParameters();

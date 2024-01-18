@@ -38,7 +38,9 @@ public class Program
         Console.WriteLine(json);
         Console.WriteLine("--------");
 
-        var result = await context.GetClient().GetWorkloadAsync(tokenResult.Result, "55c21b63-099c-4f23-8d06-a56afdfd4d34");
+        context.Options.AuthorizationHeaderFactory = new AuthorizationFactory("Bearer", tokenResult.Result);
+
+        var result = await context.GetClient().GetWorkloadAsync("55c21b63-099c-4f23-8d06-a56afdfd4d34");
         Console.WriteLine(result.Status);
         Console.WriteLine(result.Result?.Id);
         Console.WriteLine(result.Result?.Name);

@@ -149,17 +149,17 @@ internal class MethodBuilderContext
     /// <summary>
     /// Gets or sets a value indicating whether or not the request should add authorization.
     /// </summary>
-    public bool HasAuthorization { get; private set; }
+    public bool HasAuthorization { get; set; }
 
     /// <summary>
     /// Gets or sets the authorization header value.
     /// </summary>
-    public string AuthorizationHeaderValue { get; private set; }
+    public string AuthorizationHeaderValue { get; set; }
 
     /// <summary>
     /// Gets or sets the the authorization factory type.
     /// </summary>
-    public string AuthorizationFactoryType { get; private set; }
+    public string AuthorizationFactoryType { get; set; }
 
     /// <summary>
     /// Gets or sets the content parameter name.
@@ -596,28 +596,28 @@ internal class MethodBuilderContext
                 {
                     addedAuth = true;
                     var authCode = new FluentCodeBuilder()
-                            .Variable<string>("scheme", "null")
-                            .Variable<string>("token", "null")
+                            .Variable<string>("value", "null")
                             .Variable("var", "options", "this.__context.Options")
                             .BlankLine();
 
                     if (this.AuthorizationFactoryType != null)
                     {
                         authCode
-                            .Variable("var", "authType", $"new {this.AuthorizationFactoryType}()")
-                            .Assign("scheme", $"authType.{nameof(IAuthorizationHeaderFactory.GetAuthorizationHeaderScheme)}()")
-                            .AssignIf(
-                                this.ReturnsTask,
-                                "token",
-                                $"await authType.{nameof(IAuthorizationHeaderFactory.GetAuthorizationHeaderValueAsync)}()",
-                                $"authType.{nameof(IAuthorizationHeaderFactory.GetAuthorizationHeaderValue)}()");
+                            .Variable("var", "authFactory", $"new {this.AuthorizationFactoryType}()");
                     }
                     else
                     {
-
+                        authCode
+                            .Variable("var", "authFactory", $"options.GetAuthorizationHeaderFactory()");
                     }
 
-                    authCode.Return("$\"{scheme} {token}\"");
+                    authCode
+                        .AssignIf(
+                            this.ReturnsTask,
+                            "value",
+                            $"await authFactory.{nameof(IAuthorizationHeaderFactory.GetAuthorizationHeaderValueAsync)}()",
+                            $"authFactory.{nameof(IAuthorizationHeaderFactory.GetAuthorizationHeaderValue)}()")
+                        .Return("value");
 
                     var authMethod = builder
                         .MethodIf(
@@ -633,8 +633,6 @@ internal class MethodBuilderContext
                     code.Assign("auth", "await GetAuthorizationAsync();")
                         .AddLine("request.Headers.Add(\"Authorization\", auth);");
                 }
-                    
-                code.AddLine("Console.WriteLine($\"{auth}\");");
             }
         }
 

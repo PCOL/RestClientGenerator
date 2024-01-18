@@ -6,18 +6,31 @@ using RestClient;
 public class AuthorizationFactory
     : IAuthorizationHeaderFactory
 {
+    private readonly string scheme;
+    private readonly string token;
+
+    public AuthorizationFactory()
+    {
+    }
+
+    public AuthorizationFactory(string scheme, string token)
+    {
+        this.scheme = scheme;
+        this.token = token;
+    }
+
     public string GetAuthorizationHeaderScheme()
     {
-        return "bearer";
+        return this.scheme ?? "bearer";
     }
 
     public string GetAuthorizationHeaderValue()
     {
-        return "bearer token";
+        return $"{this.scheme} {this.token}";
     }
 
     public Task<string> GetAuthorizationHeaderValueAsync()
     {
-        return Task.FromResult("bearer token");
+        return Task.FromResult($"{scheme} {token}");
     }
 }
