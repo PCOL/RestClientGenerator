@@ -11,7 +11,7 @@ public class Program
 {
     public static async Task Main(string[] args)
     {
-        var apiKey = "NmY2ZWE3MjA2ZjBjNDkyYjlkMTFlYTU1MmRmZjQxYmM6bjNZV21Mb2I2UW5BOVA3ZHVXZkhjS3JuM1ZNcjR6Nkpicmw4TWZuZStoYUVLeGRwR3l6cDA5RmtqMDlJdGoyOEhBU2xPT0xCWFVqU2l2Y2psNXhpeFE9PQ==";
+        var apiKey = "";
 
         var context = new ClientContext();
         context.Options = new RestClientOptions()

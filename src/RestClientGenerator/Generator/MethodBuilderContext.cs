@@ -409,12 +409,10 @@ internal class MethodBuilderContext
                 .Params(p => this.AddParameters(p))
                 .Body(c => c
                     .Variable("var", "request", $"new {memberClassName}(this.__context)")
-                    .AddLine($"Console.WriteLine(request.GetRequestUri({parametersStr}));")
                     .ReturnIf(
                         this.ReturnsTask,
                         $"request.ExecuteAsync({parametersStr})",
                         $"request.Execute({parametersStr})")));
-
     }
 
     /// <summary>

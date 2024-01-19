@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <PackageId>RestClientSourceGenerator</PackageId>
-    <PackageVersion>1.0.0-alpha.4</PackageVersion>
+    <PackageVersion>1.0.0-alpha.5</PackageVersion>
     <Authors>PCOL</Authors>
     <Description>A .NET source generator for creating REST clients from interface definitions.</Description>
     <Copyright>Copyright (c) PCOL 2024</Copyright>
