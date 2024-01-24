@@ -6,10 +6,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using RestClient;
 
-[GenerateContract]
+[HttpClientContract(ContentType = "application/json")]
 [AddAuthorizationHeader()]
 public interface IClient
 {
+    [OutputCode]
     [Get("cluster/state/api/v1/workload/{id}")]
     [HttpResponseProcessor(typeof(ServiceResponseProcessor<WorkloadModel>))]
     [Retry(RetryLimit = 3, WaitTime = 250)]
@@ -17,7 +18,6 @@ public interface IClient
         string id,
         CancellationToken cancellationToken = default);
 
-    [OutputCode]
     [Post("cluster/state/api/v1/workload")]
     [Retry(RetryLimit = 3, WaitTime = 250, DoubleWaitTimeOnRetry = true, HttpStatusCodesToRetry = new[] { HttpStatusCode.ServiceUnavailable }, ExceptionTypesToRetry = new[] { typeof(Exception) })]
     [HttpResponseProcessor(typeof(ServiceResponseProcessor<string>))]

@@ -120,24 +120,16 @@ internal static class FluentExtensionMethods
                 .Variable("string", "value", "null")
                 .BlankLine();
 
-            var first = true;
             foreach (var queryString in queryStrings)
             {
-                if (first == true)
-                {
-                    code.AddLine($"{variable} = \"?\";");
-                }
-                else
-                {
-                    code.AddLine($"{variable} += \"&\";");
-                }
-
                 if (queryString.Value is string queryStringValue)
                 {
                     var key = Uri.EscapeDataString(queryString.Key);
 
                     code.Assign("value", $"Uri.EscapeDataString($\"{queryString.Value}\")")
-                        .AddLine($"{variable} += \"{key}=\" + value;");
+                        .If("value != null", c => c
+                            .AddLine($"{variable} += {variable}.Length == 0 ? \"?\" : \"&\";")
+                            .AddLine($"{variable} += \"{key}=\" + value;"));
                 }
                 else if (queryString.Value is List<string> queryStringList)
                 {
@@ -146,12 +138,13 @@ internal static class FluentExtensionMethods
                         var key = Uri.EscapeDataString(queryString.Key);
 
                         code.Assign("value", $"Uri.EscapeDataString($\"{value}\")")
-                            .AddLine($"{variable} += \"{key}=\" + value;");
+                            .If("value != null", c => c
+                                .AddLine($"{variable} += {variable}.Length == 0 ? \"?\" : \"&\";")
+                                .AddLine($"{variable} += \"{key}=\" + value;"));
                     }
                 }
 
                 code.BlankLine();
-                first = false;
             }
         }
 
