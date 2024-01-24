@@ -44,6 +44,39 @@ internal static class FluentExtensionMethods
     }
 
     /// <summary>
+    /// Adds a method to the struct based on a condition.
+    /// </summary>
+    /// <param name="structBuilder">A <see cref="FluentStructBuilder"/>.</param>
+    /// <param name="condition">The condition.</param>
+    /// <param name="name">The name of the method if the condition is true.</param>
+    /// <param name="elseName">The name of the method if the condition is false.</param>
+    /// <param name="action">The action to build the method if the condition is true.</param>
+    /// <param name="elseAction">The action to build the method if the condition is false.</param>
+    /// <returns>A <see cref="FluentMethodBuilder"/> for the method.</returns>
+    public static FluentMethodBuilder MethodIf(
+        this FluentStructBuilder structBuilder,
+        bool condition,
+        string name,
+        string elseName,
+        Action<FluentMethodBuilder> action = null,
+        Action<FluentMethodBuilder> elseAction = null)
+    {
+        FluentMethodBuilder method;
+        if (condition)
+        {
+            method = structBuilder.Method(name);
+            action?.Invoke(method);
+        }
+        else
+        {
+            method = structBuilder.Method(elseName);
+            elseAction?.Invoke(method);
+        }
+
+        return method;
+    }
+
+    /// <summary>
     /// Adds headers to a request variable.
     /// </summary>
     /// <param name="code">A <see cref="FluentCodeBuilder"/>.</param>

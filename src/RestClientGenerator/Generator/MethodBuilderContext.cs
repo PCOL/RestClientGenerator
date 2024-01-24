@@ -361,14 +361,15 @@ internal class MethodBuilderContext
     public void Generate()
     {
         var memberClassName = $"{GetNextClassName(this.MethodMember.Name)}_class";
-        this.ClassBuilder.SubClass(
+        this.ClassBuilder.AddStruct(
             memberClassName,
             methodSubClassBuilder =>
             {
-                // Add 'context' field to class
+                // Add 'context' field and constructor
                 methodSubClassBuilder
                     .Private()
-                    .Field<RestClientContext>("__context")
+                    .ReadOnly()
+                    .Field<RestClientContext>("__context", f => f.ReadOnly())
                     .Constructor(m => m
                         .Public()
                         .Param<RestClientContext>("context")
@@ -523,7 +524,7 @@ internal class MethodBuilderContext
     /// <param name="builder">A class builder.</param>
     /// <returns>The method builder.</returns>
     private FluentMethodBuilder GenerateSend(
-        FluentClassBuilder builder)
+        FluentStructBuilder builder)
     {
         var parametersStr = this.MethodMember.BuildParametersList();
 
@@ -578,7 +579,7 @@ internal class MethodBuilderContext
     /// <returns>A method builder.</returns>
     /// <exception cref="NotSupportedException"></exception>
     private FluentMethodBuilder GenerateCreateRequest(
-        FluentClassBuilder builder)
+        FluentStructBuilder builder)
     {
         bool addedAuth = false;
         void AddAuthorization(FluentCodeBuilder code)
@@ -779,7 +780,7 @@ internal class MethodBuilderContext
     /// </summary>
     /// <param name="builder">A class builder.</param>
     /// <returns>A method builder.</returns>
-    private FluentMethodBuilder GenerateCreateRetry(FluentClassBuilder builder)
+    private FluentMethodBuilder GenerateCreateRetry(FluentStructBuilder builder)
     {
         var retryMethod = builder.Method("CreateRetry")
             .Private()
@@ -822,7 +823,7 @@ internal class MethodBuilderContext
     /// </summary>
     /// <param name="builder">A class builder.</param>
     /// <returns>A method builder.</returns>
-    private FluentMethodBuilder GenerateGetRequestUri(FluentClassBuilder builder)
+    private FluentMethodBuilder GenerateGetRequestUri(FluentStructBuilder builder)
     {
         var requestUriMethod = builder.Method("GetRequestUri")
             .Public()
@@ -861,7 +862,7 @@ internal class MethodBuilderContext
     /// <param name="builder">A class builder.</param>
     /// <returns>A method builder.</returns>
     private FluentMethodBuilder GenerateExecute(
-        FluentClassBuilder builder)
+        FluentStructBuilder builder)
     {
         var parametersStr = this.MethodMember.BuildParametersList(true);
 
@@ -879,11 +880,12 @@ internal class MethodBuilderContext
             .Variable<HttpResponseMessage>("response")
             .Variable("var", "retry", "this.CreateRetry()")
             .If("retry != null", m => m
+                .Variable("var", "self", "this")
                 .AssignIf(
                     this.ReturnsTask,
                     "response",
-                    $"await retry.ExecuteAsync(() => {{ return this.SendAsync({parametersStr}); }}).ConfigureAwait(false)",
-                    $"retry.ExecuteAsync(() => {{ return this.SendAsync({parametersStr}); }}).Result"))
+                    $"await retry.ExecuteAsync(() => {{ return self.SendAsync({parametersStr}); }}).ConfigureAwait(false)",
+                    $"retry.ExecuteAsync(() => {{ return self.SendAsync({parametersStr}); }}).Result"))
             .Else(m => m
                 .AssignIf(
                     this.ReturnsTask,
@@ -905,7 +907,7 @@ internal class MethodBuilderContext
     /// </summary>
     /// <param name="builder">A class builder.</param>
     /// <returns>A method builder for the new method.</returns>
-    private FluentMethodBuilder GenerateProcessResponse(FluentClassBuilder builder)
+    private FluentMethodBuilder GenerateProcessResponse(FluentStructBuilder builder)
     {
         var processResponseMethod = builder
             .MethodIf(

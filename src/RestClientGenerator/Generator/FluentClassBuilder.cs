@@ -78,7 +78,12 @@ internal class FluentClassBuilder
     /// <summary>
     /// A list of subclasses.
     /// </summary>
-    private List<FluentClassBuilder> subClasses;
+    private List<FluentClassBuilder> classes;
+
+    /// <summary>
+    /// A list of sub structs.
+    /// </summary>
+    private List<FluentStructBuilder> structs;
 
     /// <summary>
     /// A list of usings.
@@ -324,19 +329,36 @@ internal class FluentClassBuilder
     }
 
     /// <summary>
-    /// Adds a sub class to the class.
+    /// Adds a class to the class.
     /// </summary>
     /// <param name="className">The name of the sub class.</param>
     /// <param name="action">The action to define the class.</param>
     /// <returns>The <see cref="FluentClassBuilder"/> instance.</returns>
-    public FluentClassBuilder SubClass(
+    public FluentClassBuilder AddClass(
         string className,
         Action<FluentClassBuilder> action)
     {
         var classBuilder = new FluentClassBuilder(className);
         action(classBuilder);
-        this.subClasses ??= new List<FluentClassBuilder>();
-        this.subClasses.Add(classBuilder);
+        this.classes ??= new List<FluentClassBuilder>();
+        this.classes.Add(classBuilder);
+        return this;
+    }
+
+    /// <summary>
+    /// Adds a struct to the class.
+    /// </summary>
+    /// <param name="className">The name of the struct.</param>
+    /// <param name="action">The action to define the struct.</param>
+    /// <returns>The <see cref="FluentClassBuilder"/> instance.</returns>
+    public FluentClassBuilder AddStruct(
+        string className,
+        Action<FluentStructBuilder> action)
+    {
+        var structBuilder = new FluentStructBuilder(className);
+        action(structBuilder);
+        this.structs ??= new List<FluentStructBuilder>();
+        this.structs.Add(structBuilder);
         return this;
     }
 
@@ -354,7 +376,7 @@ internal class FluentClassBuilder
     /// </summary>
     /// <param name="indent">The number of characters to indent.</param>
     /// <returns>The class definition.</returns>
-    private string Build(int indent)
+    internal string Build(int indent)
     {
         var indentStr = new string(' ', indent);
 
@@ -463,14 +485,25 @@ internal class FluentClassBuilder
             }
         }
 
-        if (this.subClasses != null)
+        if (this.classes != null)
         {
             classDefinition.AppendLine();
 
-            foreach (var subClass in this.subClasses)
+            foreach (var @class in this.classes)
             {
                 classDefinition
-                    .AppendLine(subClass.Build(indent + 4));
+                    .AppendLine(@class.Build(indent + 4));
+            }
+        }
+
+        if (this.structs != null)
+        {
+            classDefinition.AppendLine();
+
+            foreach (var @struct in this.structs)
+            {
+                classDefinition
+                    .AppendLine(@struct.Build(indent + 4));
             }
         }
 

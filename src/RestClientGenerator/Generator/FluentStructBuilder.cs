@@ -16,11 +16,6 @@ internal class FluentStructBuilder
     private readonly string structName;
 
     /// <summary>
-    /// The base name.
-    /// </summary>
-    private string baseName;
-
-    /// <summary>
     /// The namespace.
     /// </summary>
     private string @namespace;
@@ -31,12 +26,22 @@ internal class FluentStructBuilder
     private string accessibility;
 
     /// <summary>
-    /// A value indicating whether or not the class is sealed.
+    /// A value indicating whether or not the struct is a ref struct.
+    /// </summary>
+    private bool isRef;
+
+    /// <summary>
+    /// A value indicating whether or not the struct is readonly.
+    /// </summary>
+    private bool isReadOnly;
+
+    /// <summary>
+    /// A value indicating whether or not the struct is sealed.
     /// </summary>
     private bool isSealed;
 
     /// <summary>
-    /// A value indicating whether or not the class is abstract.
+    /// A value indicating whether or not the struct is abstract.
     /// </summary>
     private bool isAbstract;
 
@@ -76,9 +81,14 @@ internal class FluentStructBuilder
     private List<FluentAttributeBuilder> attributes;
 
     /// <summary>
-    /// A list of subclasses.
+    /// A list of classes.
     /// </summary>
-    private List<FluentStructBuilder> subClasses;
+    private List<FluentClassBuilder> classes;
+
+    /// <summary>
+    /// A list of structs.
+    /// </summary>
+    private List<FluentStructBuilder> structs;
 
     /// <summary>
     /// A list of usings.
@@ -156,6 +166,26 @@ internal class FluentStructBuilder
     }
 
     /// <summary>
+    /// Sets the struct as a readonly struct.
+    /// </summary>
+    /// <returns>The <see cref="FluentStructBuilder"/> instance.</returns>
+    public FluentStructBuilder ReadOnly()
+    {
+        this.isReadOnly = true;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the struct as a ref struct.
+    /// </summary>
+    /// <returns>The <see cref="FluentStructBuilder"/> instance.</returns>
+    public FluentStructBuilder Ref()
+    {
+        this.isRef = true;
+        return this;
+    }
+
+    /// <summary>
     /// Sets the class as sealed.
     /// </summary>
     /// <returns>The <see cref="FluentStructBuilder"/> instance.</returns>
@@ -198,17 +228,6 @@ internal class FluentStructBuilder
     {
         this.interfaces ??= new List<string>();
         this.interfaces.Add(@interface);
-        return this;
-    }
-
-    /// <summary>
-    /// Specifies that the class ihnerits from another class.
-    /// </summary>
-    /// <param name="baseClassName">The base classes name.</param>
-    /// <returns>The <see cref="FluentStructBuilder"/>.</returns>
-    public FluentStructBuilder Inherits(string baseClassName)
-    {
-        this.baseName = baseClassName;
         return this;
     }
 
@@ -324,19 +343,36 @@ internal class FluentStructBuilder
     }
 
     /// <summary>
-    /// Adds a sub class to the class.
+    /// Adds a class to the class.
     /// </summary>
-    /// <param name="className">The name of the sub class.</param>
+    /// <param name="className">The name of the class.</param>
     /// <param name="action">The action to define the class.</param>
     /// <returns>The <see cref="FluentStructBuilder"/> instance.</returns>
-    public FluentStructBuilder SubClass(
+    public FluentStructBuilder AddClass(
         string className,
+        Action<FluentClassBuilder> action)
+    {
+        var structBuilder = new FluentClassBuilder(className);
+        action(structBuilder);
+        this.classes ??= new List<FluentClassBuilder>();
+        this.classes.Add(structBuilder);
+        return this;
+    }
+
+    /// <summary>
+    /// Adds a struct to the class.
+    /// </summary>
+    /// <param name="structName">The name of the struct.</param>
+    /// <param name="action">The action to define the struct.</param>
+    /// <returns>The <see cref="FluentStructBuilder"/> instance.</returns>
+    public FluentStructBuilder AddStruct(
+        string structName,
         Action<FluentStructBuilder> action)
     {
-        var structBuilder = new FluentStructBuilder(className);
+        var structBuilder = new FluentStructBuilder(structName);
         action(structBuilder);
-        this.subClasses ??= new List<FluentStructBuilder>();
-        this.subClasses.Add(structBuilder);
+        this.structs ??= new List<FluentStructBuilder>();
+        this.structs.Add(structBuilder);
         return this;
     }
 
@@ -354,7 +390,7 @@ internal class FluentStructBuilder
     /// </summary>
     /// <param name="indent">The number of characters to indent.</param>
     /// <returns>The class definition.</returns>
-    private string Build(int indent)
+    internal string Build(int indent)
     {
         var indentStr = new string(' ', indent);
 
@@ -393,24 +429,16 @@ internal class FluentStructBuilder
             .Append(indentStr)
             .AppendLine($"[System.CodeDom.Compiler.GeneratedCode(\"RestClientGenerator\", \"{System.Reflection.Assembly.GetCallingAssembly().GetName().Version}\")]");
 
-        var value = this.isSealed ? "sealed " : this.isAbstract ? "abstract " : this.isPartial ? "partial " : string.Empty;
+        var value = this.isRef ? "ref " : this.isReadOnly ? "readonly " : this.isSealed ? "sealed " : this.isAbstract ? "abstract " : this.isPartial ? "partial " : string.Empty;
         structDefinition
             .Append(indentStr)
             .AppendLine($"{this.accessibility} {value}struct {this.structName}");
 
-        if (this.interfaces != null ||
-            string.IsNullOrWhiteSpace(this.baseName) == false)
+        if (this.interfaces != null)
         {
             structDefinition
                 .Append(indentStr)
                 .Append("   : ");
-
-            if (string.IsNullOrWhiteSpace(this.baseName) == false)
-            {
-                structDefinition
-                    .Append(this.baseName)
-                    .AppendLine();
-            }
 
             structDefinition
                 .Append(string.Join($",\r\n{indentStr}", this.interfaces))
@@ -463,14 +491,25 @@ internal class FluentStructBuilder
             }
         }
 
-        if (this.subClasses != null)
+        if (this.classes != null)
         {
             structDefinition.AppendLine();
 
-            foreach (var subClass in this.subClasses)
+            foreach (var @class in this.classes)
             {
                 structDefinition
-                    .AppendLine(subClass.Build(indent + 4));
+                    .AppendLine(@class.Build(indent + 4));
+            }
+        }
+
+        if (this.structs != null)
+        {
+            structDefinition.AppendLine();
+
+            foreach (var @struct in this.structs)
+            {
+                structDefinition
+                    .AppendLine(@struct.Build(indent + 4));
             }
         }
 
