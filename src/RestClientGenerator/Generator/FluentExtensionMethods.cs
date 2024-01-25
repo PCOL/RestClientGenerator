@@ -117,7 +117,7 @@ internal static class FluentExtensionMethods
         if (queryStrings != null)
         {
             code
-                .Variable("string", "value", "null")
+                .Variable("string", "__value", "null")
                 .BlankLine();
 
             foreach (var queryString in queryStrings)
@@ -126,10 +126,11 @@ internal static class FluentExtensionMethods
                 {
                     var key = Uri.EscapeDataString(queryString.Key);
 
-                    code.Assign("value", $"Uri.EscapeDataString($\"{queryString.Value}\")")
-                        .If("value != null", c => c
+                    code
+                        .Assign("__value", $"$\"{queryString.Value}\"")
+                        .If("__value != null", c => c
                             .AddLine($"{variable} += {variable}.Length == 0 ? \"?\" : \"&\";")
-                            .AddLine($"{variable} += \"{key}=\" + value;"));
+                            .AddLine($"{variable} += \"{key}=\" + Uri.EscapeDataString(__value);"));
                 }
                 else if (queryString.Value is List<string> queryStringList)
                 {
@@ -137,10 +138,10 @@ internal static class FluentExtensionMethods
                     {
                         var key = Uri.EscapeDataString(queryString.Key);
 
-                        code.Assign("value", $"Uri.EscapeDataString($\"{value}\")")
-                            .If("value != null", c => c
+                        code.Assign("__value", $"$\"{value}\"")
+                            .If("__value != null", c => c
                                 .AddLine($"{variable} += {variable}.Length == 0 ? \"?\" : \"&\";")
-                                .AddLine($"{variable} += \"{key}=\" + value;"));
+                                .AddLine($"{variable} += \"{key}=\" + Uri.EscapeDataString(__value);"));
                     }
                 }
 

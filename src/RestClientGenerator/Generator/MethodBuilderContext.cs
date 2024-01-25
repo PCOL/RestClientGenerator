@@ -838,15 +838,15 @@ internal class MethodBuilderContext
         else if (string.IsNullOrWhiteSpace(this.RequestUri) == false)
         {
             requestUriMethod.Body(c => c
-                .Variable("var", "baseUrl", "this.__context.Options.BaseUrl")
+                .Variable("var", "__baseUrl", "this.__context.Options.BaseUrl")
                 .AddQueryStrings("queryString", this.queryStrings)
-                .Variable("var", "url", $"$\"{this.RequestUri}\"")
-                .Variable("var", "fullUrl", "$\"{url}\" + queryString")
+                .Variable("var", "__url", $"$\"{this.RequestUri}\"")
+                .Variable("var", "__fullUrl", "$\"{__url}\" + queryString")
                 .BlankLine()
-                .If("baseUrl != null", c => c
-                    .Return("baseUrl.TrimEnd('/') + \"/\" + fullUrl"))
+                .If("__baseUrl != null", c => c
+                    .Return("__baseUrl.TrimEnd('/') + \"/\" + __fullUrl"))
                 .BlankLine()
-                .Return("fullUrl"));
+                .Return("__fullUrl"));
         }
         else
         {

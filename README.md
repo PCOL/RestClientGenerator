@@ -1,4 +1,5 @@
 # RestClientGenerator
+
 A .Net source generator for generating REST clients from interface definitions
 
 ## Installation
@@ -7,7 +8,7 @@ A .Net source generator for generating REST clients from interface definitions
 
 ## Defining a client
 
-A client is defined by creating an interface and decorating it with the HttpClientContractAttribute class. This allows you to define the base route and content type to be used by default by all methods on the interface. These can be also be set on a per method basis and so do not have to be configured at this point.
+A client is defined by creating an interface and decorating it with the `HttpClientContractAttribute` class. This allows you to define the base route and content type to be used by default by all methods on the interface. These can be also be set on a per method basis and so do not have to be configured at this point.
 
 A call to a REST endpoint is defined by adding a method to the interface. The method determines the parameters and return type that will be used to send data to and receive data from the REST endpoint.
 
@@ -133,9 +134,7 @@ public interface ICustomerClient
 
 Attributes are used to define a methods behaviours:
 
-The http method attributes from Microsoft.AspNetCore.Mvc such as [HttpGet], [HttpPut], [HttpPost], and [HttpDelete] can be used to define the requests HttpMethod type.
-
-_RestClientGenerator_ also provides its own set of attributes as well:
+_RestClientGenerator_ provides a set of attributes that can be use to define the `HttpMethod` type:
 
 * `PostAttribute` - Specifies that the request has a POST method.
 * `GetAttribute` - Specifies that the request has a GET method.
@@ -149,13 +148,13 @@ _RestClientGenerator_ also provides its own set of attributes as well:
 
 * `AddAuthorizationHeaderAttribute` can be applied to a method or an interface to add an authorization header to the request or all requests.
 
-One group of attributes can be used to alter how return values or out parameters use the Http responses content to obtain their values.
+<!-- One group of attributes can be used to alter how return values or out parameters use the Http responses content to obtain their values.
 
 * The `FromResponseAttribute` class can be used to indicate the return type. This is only required if the methods return type or out parameter is an interface type.
 
 * The `FromJsonAttribute` class can be used to indicate that the value is obtained from a JSON object. It can be used to specify a sub type within the JSON object via a path parameter. It is also possible to indicate a return type (as with `FromResponseAttribute`) if the methods return type is an interface.
 
-* The `FromModelAttribute` class can be used to indicate that the value is obtained from a property of a model, rather than the model itself.
+* The `FromModelAttribute` class can be used to indicate that the value is obtained from a property of a model, rather than the model itself. -->
 
 ### Http Response Processors
 
