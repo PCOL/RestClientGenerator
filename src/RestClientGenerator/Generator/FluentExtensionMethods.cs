@@ -128,11 +128,12 @@ internal static class FluentExtensionMethods
                     namedType.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.IEnumerable<T>")
                 {
                     code
-                        .ForEach($"var __item in {queryString.Value.Item2.Name}", c => c
-                            .Variable("var", "__escapedValue", "Uri.EscapeDataString(__item?.ToString())")
-                            .If($"string.{nameof(string.IsNullOrWhiteSpace)}(__escapedValue) == false", ic => ic
-                                .AddLine($"{variable} += {variable}.Length == 0 ? \"?\" : \"&\";")
-                                .AddLine($"{variable} += \"{queryString.Key}=\" + __escapedValue;")));
+                        .If ($"{queryString.Value.Item2.Name} != null", c => c
+                            .ForEach($"var __item in {queryString.Value.Item2.Name}", fc => fc
+                                .Variable("var", "__escapedValue", "Uri.EscapeDataString(__item?.ToString())")
+                                .If($"string.{nameof(string.IsNullOrWhiteSpace)}(__escapedValue) == false", ic => ic
+                                    .AddLine($"{variable} += {variable}.Length == 0 ? \"?\" : \"&\";")
+                                    .AddLine($"{variable} += \"{queryString.Key}=\" + __escapedValue;"))));
                 }
                 else
                 {
