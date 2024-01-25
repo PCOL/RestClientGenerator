@@ -110,7 +110,7 @@ internal static class FluentExtensionMethods
     public static FluentCodeBuilder AddQueryStrings(
         this FluentCodeBuilder code,
         string variable,
-        IDictionary<string, object> queryStrings)
+        IDictionary<string, (object, IParameterSymbol)> queryStrings)
     {
         code.Variable("var", variable, "string.Empty");
 
@@ -122,26 +122,41 @@ internal static class FluentExtensionMethods
 
             foreach (var queryString in queryStrings)
             {
-                if (queryString.Value is string queryStringValue)
+                var namedType = queryString.Value.Item2.Type as INamedTypeSymbol;
+                if (namedType != null &&
+                    namedType.IsGenericType &&
+                    namedType.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.IEnumerable<T>")
                 {
-                    var key = Uri.EscapeDataString(queryString.Key);
-
                     code
-                        .Assign("__value", $"$\"{queryString.Value}\"")
-                        .If("__value != null", c => c
-                            .AddLine($"{variable} += {variable}.Length == 0 ? \"?\" : \"&\";")
-                            .AddLine($"{variable} += \"{key}=\" + Uri.EscapeDataString(__value);"));
+                        .ForEach($"var __item in {queryString.Value.Item2.Name}", c => c
+                            .Variable("var", "__escapedValue", "Uri.EscapeDataString(__item?.ToString())")
+                            .If($"string.{nameof(string.IsNullOrWhiteSpace)}(__escapedValue) == false", ic => ic
+                                .AddLine($"{variable} += {variable}.Length == 0 ? \"?\" : \"&\";")
+                                .AddLine($"{variable} += \"{queryString.Key}=\" + __escapedValue;")));
                 }
-                else if (queryString.Value is List<string> queryStringList)
+                else
                 {
-                    foreach (var value in queryStringList)
+                    if (queryString.Value.Item1 is string queryStringValue)
                     {
                         var key = Uri.EscapeDataString(queryString.Key);
 
-                        code.Assign("__value", $"$\"{value}\"")
-                            .If("__value != null", c => c
+                        code
+                            .Assign("__value", $"$\"{queryStringValue}\"")
+                            .If($"string.{nameof(string.IsNullOrWhiteSpace)}(__value) == false", c => c
                                 .AddLine($"{variable} += {variable}.Length == 0 ? \"?\" : \"&\";")
                                 .AddLine($"{variable} += \"{key}=\" + Uri.EscapeDataString(__value);"));
+                    }
+                    else if (queryString.Value.Item1 is List<string> queryStringList)
+                    {
+                        foreach (var value in queryStringList)
+                        {
+                            var key = Uri.EscapeDataString(queryString.Key);
+
+                            code.Assign("__value", $"$\"{value}\"")
+                                .If($"string.{nameof(string.IsNullOrWhiteSpace)}(__value) == false", c => c
+                                    .AddLine($"{variable} += {variable}.Length == 0 ? \"?\" : \"&\";")
+                                    .AddLine($"{variable} += \"{key}=\" + Uri.EscapeDataString(__value);"));
+                        }
                     }
                 }
 

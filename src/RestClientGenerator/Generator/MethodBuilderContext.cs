@@ -29,7 +29,7 @@ internal class MethodBuilderContext
     /// <summary>
     /// A dictionary of query strings.
     /// </summary>
-    private Dictionary<string, object> queryStrings;
+    private Dictionary<string, (object, IParameterSymbol)> queryStrings;
 
     /// <summary>
     /// A dictionary of headers for this request.
@@ -328,7 +328,7 @@ internal class MethodBuilderContext
                         value = $"string.Format(\\\"{format.Replace("{", "{{").Replace("}", "}}")}\\\", \\\"{{{parameterSymbol.Name}}}\\\")";
                     }
 
-                    this.AddQueryString(key, value);
+                    this.AddQueryString(key, value, parameterSymbol);
                 }
                 else if (attr.AttributeClass.Name == nameof(UriAttribute))
                 {
@@ -409,11 +409,11 @@ internal class MethodBuilderContext
                 .Returns(this.MethodMember.ReturnType.ToString())
                 .Params(p => this.AddParameters(p))
                 .Body(c => c
-                    .Variable("var", "request", $"new {memberClassName}(this.__context)")
+                    .Variable("var", "__request", $"new {memberClassName}(this.__context)")
                     .ReturnIf(
                         this.ReturnsTask,
-                        $"request.ExecuteAsync({parametersStr})",
-                        $"request.Execute({parametersStr})")));
+                        $"__request.ExecuteAsync({parametersStr})",
+                        $"__request.Execute({parametersStr})")));
     }
 
     /// <summary>
@@ -493,28 +493,28 @@ internal class MethodBuilderContext
     /// <param name="key">The query key.</param>
     /// <param name="value">The query value.</param>
     /// <returns>The <see cref="HttpRequestBuilder"/> instance.</returns>
-    private void AddQueryString(string key, string value)
+    private void AddQueryString(string key, string value, IParameterSymbol parameterSymbol)
     {
-        this.queryStrings = this.queryStrings ?? new Dictionary<string, object>();
+        this.queryStrings = this.queryStrings ?? new Dictionary<string, (object, IParameterSymbol)>();
 
-        if (this.queryStrings.TryGetValue(key, out object existingValue) == true)
+        if (this.queryStrings.TryGetValue(key, out var existingValue) == true)
         {
-            if (existingValue is string existingString)
+            if (existingValue.Item1 is string existingString)
             {
                 var list = new List<string>();
                 list.Add(existingString);
                 list.Add(value);
 
-                this.queryStrings[key] = list;
+                this.queryStrings[key] = (list, existingValue.Item2);
             }
-            else if (existingValue is List<string> existingList)
+            else if (existingValue.Item1 is List<string> existingList)
             {
                 existingList.Add(value);
             }
         }
         else
         {
-            this.queryStrings.Add(key, value);
+            this.queryStrings.Add(key, (value, parameterSymbol));
         }
     }
 
@@ -588,35 +588,35 @@ internal class MethodBuilderContext
             {
                 if (this.AuthorizationHeaderValue != null)
                 {
-                    code.Assign("auth", $"$\"{this.AuthorizationHeaderValue}\"")
-                        .AddLine($"request.Headers.Add(\"Authorization\", auth);");
+                    code.Assign("__auth", $"$\"{this.AuthorizationHeaderValue}\"")
+                        .AddLine($"__request.Headers.Add(\"Authorization\", __auth);");
                 }
                 else
                 {
                     addedAuth = true;
                     var authCode = new FluentCodeBuilder()
-                            .Variable<string>("value", "null")
-                            .Variable("var", "options", "this.__context.Options")
+                            .Variable<string>("__value", "null")
+                            .Variable("var", "__options", "this.__context.Options")
                             .BlankLine();
 
                     if (this.AuthorizationFactoryType != null)
                     {
                         authCode
-                            .Variable("var", "authFactory", $"new {this.AuthorizationFactoryType}()");
+                            .Variable("var", "__authFactory", $"new {this.AuthorizationFactoryType}()");
                     }
                     else
                     {
                         authCode
-                            .Variable("var", "authFactory", $"options.GetAuthorizationHeaderFactory()");
+                            .Variable("var", "__authFactory", $"__options.GetAuthorizationHeaderFactory()");
                     }
 
                     authCode
                         .AssignIf(
                             this.ReturnsTask,
-                            "value",
-                            $"await authFactory.{nameof(IAuthorizationHeaderFactory.GetAuthorizationHeaderValueAsync)}()",
-                            $"authFactory.{nameof(IAuthorizationHeaderFactory.GetAuthorizationHeaderValue)}()")
-                        .Return("value");
+                            "__value",
+                            $"await __authFactory.{nameof(IAuthorizationHeaderFactory.GetAuthorizationHeaderValueAsync)}()",
+                            $"__authFactory.{nameof(IAuthorizationHeaderFactory.GetAuthorizationHeaderValue)}()")
+                        .Return("__value");
 
                     var authMethod = builder
                         .MethodIf(
@@ -629,8 +629,8 @@ internal class MethodBuilderContext
                         .Public()
                         .Body(authCode);
 
-                    code.Assign("auth", "await GetAuthorizationAsync();")
-                        .AddLine("request.Headers.Add(\"Authorization\", auth);");
+                    code.Assign("__auth", "await GetAuthorizationAsync();")
+                        .AddLine("__request.Headers.Add(\"Authorization\", __auth);");
                 }
             }
         }
@@ -652,17 +652,17 @@ internal class MethodBuilderContext
                 code
                     .AddLine("};")
                     .BlankLine()
-                    .AddLine($"request.Content = new FormUrlEncodedContent(list);");
+                    .AddLine($"__request.Content = new FormUrlEncodedContent(list);");
             }
             else if (this.ContentParameterSymbol != null)
             {
                 if (this.ContentParameterSymbol.Type.HasBaseType(nameof(HttpContent)))
                 {
-                    code.AddLine($"request.Content = {this.ContentParameterName};");
+                    code.AddLine($"__request.Content = {this.ContentParameterName};");
                 }
                 else if (this.ContentParameterSymbol.Type.HasBaseType("System.IO", nameof(Stream)))
                 {
-                    code.AddLine($"request.Content = new System.Net.Http.StreamContent({this.ContentParameterName});");
+                    code.AddLine($"__request.Content = new System.Net.Http.StreamContent({this.ContentParameterName});");
                 }
                 else if (this.ContentParameterSymbol.Type.ContainingNamespace.Name == "System" &&
                     this.ContentParameterSymbol.Type.Name == "Func" &&
@@ -674,13 +674,13 @@ internal class MethodBuilderContext
                     {
                         code
                             .Variable($"{returnType.ToDisplayString()}", "__result", $"{this.ContentParameterName}()")
-                            .AddLine($"request.Content = __result;");
+                            .AddLine($"__request.Content = __result;");
                     }
                     else if (returnType.HasBaseType("System.IO", nameof(Stream)))
                     {
                         code
                             .Variable($"{returnType.ToDisplayString()}", "__result", $"{this.ContentParameterName}()")
-                            .AddLine($"request.Content = new System.Net.Http.StreamContent(__result);");
+                            .AddLine($"__request.Content = new System.Net.Http.StreamContent(__result);");
                     }
                     else
                     {
@@ -689,8 +689,8 @@ internal class MethodBuilderContext
                 }
                 else
                 {
-                    code.Variable("var", "json", $"this.__context.Serialize({this.ContentParameterName})")
-                        .AddLine($"request.Content = new StringContent(json, System.Text.UTF8Encoding.UTF8, \"{this.ContentType}\");");
+                    code.Variable("var", "__json", $"this.__context.Serialize({this.ContentParameterName})")
+                        .AddLine($"__request.Content = new StringContent(__json, System.Text.UTF8Encoding.UTF8, \"{this.ContentType}\");");
                 }
             }
         }
@@ -698,46 +698,46 @@ internal class MethodBuilderContext
         var parametersStr = this.MethodMember.BuildParametersList();
 
         var code = new FluentCodeBuilder()
-            .Variable("string", "auth", "null")
-            .Variable("var", "requestUri", $"this.GetRequestUri({parametersStr})");
+            .Variable("string", "__auth", "null")
+            .Variable("var", "__requestUri", $"this.GetRequestUri({parametersStr})");
 
         if (this.RequestMethod == HttpMethod.Get)
         {
             this.AddHeader("Accept", $"\"{this.ContentType}\"");
 
             code
-                .Variable("var", "request", $"new HttpRequestMessage(HttpMethod.Get, requestUri)")
-                .AddHeaders("request", this.headers);
+                .Variable("var", "__request", $"new HttpRequestMessage(HttpMethod.Get, __requestUri)")
+                .AddHeaders("__request", this.headers);
         }
         else if (this.RequestMethod == HttpMethod.Post)
         {
             code
-                .Variable("var", "request", "new HttpRequestMessage(HttpMethod.Post, requestUri)")
-                .AddHeaders("request", this.headers);
+                .Variable("var", "__request", "new HttpRequestMessage(HttpMethod.Post, __requestUri)")
+                .AddHeaders("__request", this.headers);
 
             AddContent(code);
         }
         else if (this.RequestMethod == HttpMethod.Put)
         {
             code
-                .Variable("var", "request", "new HttpRequestMessage(HttpMethod.Put, requestUri)")
-                .AddHeaders("request", this.headers);
+                .Variable("var", "__request", "new HttpRequestMessage(HttpMethod.Put, __requestUri)")
+                .AddHeaders("__request", this.headers);
 
             AddContent(code);
         }
         else if (this.RequestMethod == Patch)
         {
             code
-                .Variable("var", "request", "new HttpRequestMessage(new HttpMethod(\"PATCH\"), requestUri)")
-                .AddHeaders("request", this.headers);
+                .Variable("var", "__request", "new HttpRequestMessage(new HttpMethod(\"PATCH\"), __requestUri)")
+                .AddHeaders("__request", this.headers);
 
             AddContent(code);
         }
         else if (this.RequestMethod == HttpMethod.Delete)
         {
             code
-                .Variable("var", "request", "new HttpRequestMessage(HttpMethod.Delete, requestUri)")
-                .AddHeaders("request", this.headers);
+                .Variable("var", "__request", "new HttpRequestMessage(HttpMethod.Delete, __requestUri)")
+                .AddHeaders("__request", this.headers);
         }
         else
         {
@@ -760,7 +760,7 @@ internal class MethodBuilderContext
         if (this.ReturnsTask &&
             addedAuth == false)
         {
-            code.Return("Task.FromResult(request)");
+            code.Return("Task.FromResult(__request)");
         }
         else
         {
@@ -769,7 +769,7 @@ internal class MethodBuilderContext
                 createRequestMethod.Async();
             }
 
-            code.Return("request");
+            code.Return("__request");
         }
 
         return createRequestMethod;

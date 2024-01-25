@@ -177,6 +177,21 @@ internal class FluentCodeBuilder
     }
 
     /// <summary>
+    /// Adds a foreach block.
+    /// </summary>
+    /// <param name="expression">The expression.</param>
+    /// <param name="action">The code to place inside the block.</param>
+    /// <param name="indent">The number of spaces to indent.</param>
+    /// <returns>The <see cref="FluentCodeBuilder"/>.</returns>
+    public FluentCodeBuilder ForEach(
+        string expression,
+        Action<FluentCodeBuilder> action,
+        int indent = 0)
+    {
+        return this.AddBlock($"foreach({expression})", action, indent);
+    }
+
+    /// <summary>
     /// Adds a using block.
     /// </summary>
     /// <param name="expression"></param>
