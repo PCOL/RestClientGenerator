@@ -914,7 +914,7 @@ internal class MethodBuilderContext
                 this.ReturnsTask,
                 "ProcessResponseAsync",
                 "ProcessResponse",
-                m => m.Async())
+                m => m.Async())     
             .Private()
             .Returns(this.MethodMember.ReturnType.ToString())
             .Param<HttpResponseMessage>("response");
