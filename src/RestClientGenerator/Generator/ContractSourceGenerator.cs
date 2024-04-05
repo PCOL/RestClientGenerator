@@ -205,7 +205,11 @@ public class ContractSourceGenerator
                     var value = firstParam.Value as string;
                     var name = sym.Name;
 
-                    typeName = name.TrimStart('I');
+                    typeName = name;
+                    if (typeName.StartsWith("I"))
+                    {
+                        typeName = name.Substring(1);
+                    }
 
                     classBuilder
                         .Method($"Get{typeName}", m => m
