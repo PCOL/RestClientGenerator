@@ -17,6 +17,7 @@
   <ItemGroup>
     <ProjectReference
 		Include="..\..\src\RestClientGenerator\RestClientGenerator.csproj"
+		ReferenceOutputAssembly="true"
 		OutputItemType="Analyzer" />
   </ItemGroup>
 

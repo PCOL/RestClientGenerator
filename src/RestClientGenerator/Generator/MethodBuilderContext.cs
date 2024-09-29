@@ -205,6 +205,14 @@ internal class MethodBuilderContext
                         nameof(DeleteAttribute) => HttpMethod.Delete,
                         _ => throw new Exception("Unknown method type")
                     };
+
+                    foreach (var arg in attr.NamedArguments)
+                    {
+                        if (arg.GetValue<string>(nameof(MethodAttribute.ContentType), nameof(String), out var contentType))
+                        {
+                            this.ContentType = contentType;
+                        }
+                    }
                 }
             }
 
@@ -839,9 +847,9 @@ internal class MethodBuilderContext
         {
             requestUriMethod.Body(c => c
                 .Variable("var", "__baseUrl", "this.__context.Options.BaseUrl")
-                .AddQueryStrings("queryString", this.queryStrings)
+                .AddQueryStrings("__queryString", this.queryStrings)
                 .Variable("var", "__url", $"$\"{this.RequestUri}\"")
-                .Variable("var", "__fullUrl", "$\"{__url}\" + queryString")
+                .Variable("var", "__fullUrl", "$\"{__url}\" + __queryString")
                 .BlankLine()
                 .If("__baseUrl != null", c => c
                     .Return("__baseUrl.TrimEnd('/') + \"/\" + __fullUrl"))
@@ -878,14 +886,14 @@ internal class MethodBuilderContext
 
         var code = new FluentCodeBuilder()
             .Variable<HttpResponseMessage>("response")
-            .Variable("var", "retry", "this.CreateRetry()")
-            .If("retry != null", m => m
-                .Variable("var", "self", "this")
+            .Variable("var", "__retry", "this.CreateRetry()")
+            .If("__retry != null", m => m
+                .Variable("var", "__self", "this")
                 .AssignIf(
                     this.ReturnsTask,
                     "response",
-                    $"await retry.ExecuteAsync(() => {{ return self.SendAsync({parametersStr}); }}).ConfigureAwait(false)",
-                    $"retry.ExecuteAsync(() => {{ return self.SendAsync({parametersStr}); }}).Result"))
+                    $"await __retry.ExecuteAsync(() => {{ return __self.SendAsync({parametersStr}); }}).ConfigureAwait(false)",
+                    $"__retry.ExecuteAsync(() => {{ return __self.SendAsync({parametersStr}); }}).Result"))
             .Else(m => m
                 .AssignIf(
                     this.ReturnsTask,
@@ -925,12 +933,24 @@ internal class MethodBuilderContext
         if (this.ResponseProcessorType == null)
         {
             code.Variable(returnTypeName, "result", "null")
-                .AddLine("response.EnsureSuccessStatusCode();")
-                .AddLineIf(this.ReturnsTask, "await Task.Yield();");
+                .AddLine("response.EnsureSuccessStatusCode();");
 
             if (returnTypeName == $"System.Net.Http.{nameof(HttpResponseMessage)}")
             {
-                code.Assign("result", "response");
+                code
+                    .Assign("result", "response")
+                    .AddLineIf(this.ReturnsTask, "await Task.Yield();");
+            }
+            else if (returnTypeName == $"System.IO.{nameof(Stream)}")
+            {
+                if (this.ReturnsTask)
+                {
+                    code.Assign("result", "await response.Content.ReadAsStreamAsync()");
+                }
+                else
+                {
+                    code.Assign("result", "response.Content.ReadAsStream()");
+                }
             }
             else
             {
@@ -946,7 +966,7 @@ internal class MethodBuilderContext
 
                 if (returnTypeName == nameof(String))
                 {
-                    code.Assign("result", "response");
+                    code.Assign("result", "content");
                 }
                 else
                 {
